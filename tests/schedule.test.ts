@@ -1,9 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { monthSlots,pacificToUTC,reviewDeadline } from '../lib/calendar';
+import { monthSlots,pacificToUTC,reviewDeadline,zonedInput,zonedToUTC } from '../lib/calendar';
 import { processSlot } from '../lib/schedule-engine';
 import type { Slot } from '../lib/schedule-store';
 import type { Article } from '../lib/article';
+
+test('local calendar edits preserve the publication instant across viewer time zones',()=>{
+  const instant='2026-09-27T19:04:00.000Z';
+  for(const zone of ['Asia/Yerevan','America/Los_Angeles','Asia/Kolkata','Pacific/Auckland']) {
+    assert.equal(zonedToUTC(zonedInput(instant,zone),zone),instant);
+  }
+  assert.equal(zonedInput(instant,'Asia/Yerevan'),'2026-09-27T23:04');
+  assert.equal(zonedInput(instant,'Pacific/Auckland'),'2026-09-28T08:04');
+  assert.throws(()=>zonedToUTC('2026-03-29T02:30','Europe/Berlin'));
+  assert.throws(()=>zonedToUTC('2026-10-25T02:30','Europe/Berlin'));
+  assert.throws(()=>zonedToUTC('2026-09-27T23:04','Invalid/Zone'));
+});
 
 test('four monthly dates stay at 08:00 Pacific across DST and leap years',()=>{
   const march=monthSlots('2026-03',4);

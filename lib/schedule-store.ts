@@ -2,7 +2,7 @@ import { assertProjectReady } from "./project-catalog";
 import { getSite } from "./config";
 import { randomUUID } from "node:crypto";
 import { query } from "./database";
-import { monthSlots, nextMonths, pacificToUTC } from "./calendar";
+import { monthSlots, nextMonths, zonedToUTC, TIME_ZONE } from "./calendar";
 import { z } from "zod";
 export type ScheduleSettings = { perMonth: number; enabled: boolean; latePolicy: 'review24h' | 'immediate' };
 export type Slot = { id: string; month: string; index: number; publishAt: string; generateAt: string; topic: string; custom: boolean; status: 'planned' | 'review' | 'publishing' | 'published' | 'error'; generationId?: string; articleId?: string; generatedAt?: string; error?: string; updatedAt: string; revision: number; retryAfter?: string };
@@ -36,11 +36,11 @@ export async function updateSettings(input:unknown) {
   await ensureCalendar(old.perMonth!==parsed.perMonth);return parsed;
 }
 export async function updateSlot(id:string,input:unknown) {
-  const parsed=z.object({revision:z.number().int(),localTime:z.string()}).parse(input);
+  const parsed=z.object({revision:z.number().int(),localTime:z.string(),timeZone:z.string().min(1).max(100).default(TIME_ZONE)}).parse(input);
   const slot=(await slots()).find(s=>s.id===id);if(!slot)throw new Error('Scheduled entry not found.');
   if(slot.revision!==parsed.revision)throw new Error('The schedule has changed. Refresh the page.');
   if(slot.status==='publishing'||slot.status==='published')throw new Error('The article has already been sent to the website.');
-  const publishAt=pacificToUTC(parsed.localTime);
+  const publishAt=zonedToUTC(parsed.localTime,parsed.timeZone);
   if(Date.parse(publishAt)<=Date.now())throw new Error('Choose a future date.');
   slot.publishAt=publishAt;slot.generateAt=new Date(Date.parse(publishAt)-86400000).toISOString();slot.custom=true;
   await writeSlot(slot);return slot;

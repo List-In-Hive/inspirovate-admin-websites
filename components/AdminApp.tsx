@@ -20,6 +20,7 @@ import { projectPath } from "@/lib/projects";
 import { ProjectFrame, useProject } from "./ProjectContext";
 import AIGenerator from "./AIGenerator";
 import Integrations from "./Integrations";
+import { browserTimeZone, localDateTime } from "@/lib/calendar";
 
 
 import ArticleIcon from "@mui/icons-material/Article";
@@ -109,7 +110,7 @@ function Preview() {
   };
   return <Box p={{ xs: 2, md: 4 }}>
     {project.localOnly&&<Alert severity="info" sx={{mb:2}}>Local test project. You can edit drafts; GitHub publication is disabled.</Alert>}
-    {article.schedule && <Alert severity={article.schedule.enabled ? "info" : "warning"} sx={{ mb: 2 }}>{article.schedule.enabled ? `Automatic publication: ${new Date(article.schedule.publishAt).toLocaleString("en-US", {timeZone:"America/Los_Angeles",dateStyle:"medium",timeStyle:"short"})} PT. The latest saved version will be published, regardless of manual approval.` : "Automatic publication is paused in Calendar settings."} <a href={`#${base}/calendar`}>Calendar</a></Alert>}
+    {article.schedule && <Alert severity={article.schedule.enabled ? "info" : "warning"} sx={{ mb: 2 }}>{article.schedule.enabled ? `Automatic publication: ${localDateTime(article.schedule.publishAt)} (${browserTimeZone()}). The latest saved version will be published, regardless of manual approval.` : "Automatic publication is paused in Calendar settings."} <a href={`#${base}/calendar`}>Calendar</a></Alert>}
     <Stack direction="row" spacing={2} alignItems="center" mb={2}><Status /><Typography color="text.secondary">Version {article.revision} · {project.brand}</Typography></Stack>
     <Stack direction="row" gap={1} flexWrap="wrap" mb={3}>
       {!article.commit && article.status !== "deploying" && <EditButton label="Edit" />}

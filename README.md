@@ -100,6 +100,8 @@ An optional Actions variable, `OPENAI_MODEL`, selects the model. Git receives th
 
 The workflow must be on the default branch, with GitHub Actions enabled and sufficient execution minutes. Five-minute checks consume Actions minutes separately from OpenAI usage. Merely having the workflow in the source code does not activate it: verify a successful Actions run and the last scheduler check shown in the Calendar.
 
+The Calendar tracks automatic checks separately from manual/local checks. Only a GitHub `schedule` event refreshes the automatic heartbeat; a successful manual run cannot make the automatic indicator green. Checks before this tracking was introduced have an unknown trigger and do not count as proof of automatic scheduling. A heartbeat confirms the worker started processing that project, not that every article succeeded; article failures remain visible on their calendar cards.
+
 GitHub can delay scheduled runs, and Netlify needs time to build. 8:00 AM is the target submission time, not a guarantee that the page will be live at that exact minute. For more precise execution, the same `scheduler:once` command can run from system cron on a persistent server with Node.js 24, Git, a Flowers checkout and the required environment variables.
 
 `npm run scheduler` is a development-only local loop. It is not needed for cloud scheduling and is not started by `dev` or `start`. PostgreSQL locks serialize competing workers. The scheduler does not expose the admin interface publicly.

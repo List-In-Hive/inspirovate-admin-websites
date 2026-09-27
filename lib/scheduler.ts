@@ -6,6 +6,7 @@ import { generateScheduledArticleUnlocked } from "./ai-service";
 import { actOnArticleUnlocked } from "./service";
 import { query } from "./database";
 import { processSlot } from './schedule-engine';
+import { heartbeatSql, workerTrigger } from './worker-status';
 export async function schedulerTick() {
   const failed:string[]=[];
   for (const project of await listProjects()) {
@@ -17,7 +18,7 @@ export async function schedulerTick() {
 }
 async function tickProject() {
   return withLock(async()=>{
-    await query("INSERT INTO inspirovate.worker(id,heartbeat) VALUES($1,now()) ON CONFLICT(id) DO UPDATE SET heartbeat=now()",[getSite().id]);
+    await query(heartbeatSql,[getSite().id,workerTrigger()]);
     const config=await settings();if(!config.enabled)return;
     await ensureCalendar();
     for(const slot of await slots()) await processSlot(slot,config,{

@@ -1,5 +1,6 @@
 export function workerTrigger(env: Record<string, string | undefined> = process.env) {
   if (env.GITHUB_ACTIONS === 'true') {
+    if (env.GITHUB_EVENT_NAME === 'repository_dispatch' && env.SCHEDULER_EVENT_ACTION === 'inspirovate-supabase-schedule') return 'supabase';
     return env.GITHUB_EVENT_NAME === 'schedule' ? 'schedule' : 'manual';
   }
   return 'local';
@@ -7,7 +8,7 @@ export function workerTrigger(env: Record<string, string | undefined> = process.
 
 // A manual run must never make a stale automatic heartbeat look healthy.
 export const heartbeatSql = `INSERT INTO inspirovate.worker(id,heartbeat,automatic_heartbeat,last_trigger)
-  VALUES($1,now(),CASE WHEN $2='schedule' THEN now() ELSE NULL END,$2)
+  VALUES($1,now(),CASE WHEN $2 IN ('schedule','supabase') THEN now() ELSE NULL END,$2)
   ON CONFLICT(id) DO UPDATE SET heartbeat=now(),last_trigger=excluded.last_trigger,
   automatic_heartbeat=COALESCE(excluded.automatic_heartbeat,inspirovate.worker.automatic_heartbeat)`;
 

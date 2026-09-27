@@ -4,6 +4,8 @@ on:
     # Avoid the top-of-hour peak while keeping five-minute checks.
     - cron: '4,9,14,19,24,29,34,39,44,49,54,59 * * * *'
   workflow_dispatch:
+  repository_dispatch:
+    types: [inspirovate-supabase-schedule]
 permissions:
   contents: read
 concurrency:
@@ -26,6 +28,7 @@ jobs:
       - run: npm ci
       - run: npm run scheduler:once
         env:
+          SCHEDULER_EVENT_ACTION: ${{ github.event.action }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6-terra' }}

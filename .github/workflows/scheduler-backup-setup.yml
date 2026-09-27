@@ -1,0 +1,34 @@
+name: Configure scheduler backup
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Check access, enable Supabase backup, or disable it
+        required: true
+        type: choice
+        default: check
+        options: [check, install, disable]
+permissions:
+  contents: read
+concurrency:
+  group: inspirovate-scheduler-setup
+  cancel-in-progress: false
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    environment: WEBSITES
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/configure-supabase-scheduler.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PROJECTS_GITHUB_TOKEN: ${{ secrets.PROJECTS_GITHUB_TOKEN }}
+          SCHEDULER_SETUP_ACTION: ${{ inputs.action }}

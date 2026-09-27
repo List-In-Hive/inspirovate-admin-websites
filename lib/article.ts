@@ -2,20 +2,21 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 export const inputSchema = z.object({
-  title: z.string().trim().min(1, "Укажите заголовок").max(180),
-  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Адрес: латинские буквы, цифры и дефисы").max(100),
-  description: z.string().trim().min(1, "Укажите описание").max(400),
+  title: z.string().trim().min(1, "Enter a title").max(180),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase English letters, numbers and hyphens").max(100),
+  description: z.string().trim().min(1, "Enter a description").max(400),
   publishedAt: z.iso.datetime({ offset: true }),
-  coverImage: z.string().regex(/^\/images\/[a-zA-Z0-9_-]+\.webp$/, "Выберите локальную WebP-обложку"),
-  coverAlt: z.string().trim().min(1, "Опишите обложку").max(300),
-  body: z.string().trim().min(1, "Добавьте текст статьи").max(100000),
+  coverImage: z.string().regex(/^\/images\/[a-zA-Z0-9_-]+\.webp$/, "Select a local WebP cover"),
+  coverAlt: z.string().trim().min(1, "Describe the cover image").max(300),
+  body: z.string().trim().min(1, "Enter the article body").max(100000),
 });
 export type ArticleInput = z.infer<typeof inputSchema>;
 export type Article = ArticleInput & {
-  id: string; siteId: "flowers"; revision: number;
+  schedule?: { publishAt: string; enabled: boolean };
+  id: string; siteId: string; revision: number;
   status: "draft" | "approved" | "deploying" | "published" | "failed";
   approvedHash?: string; commit?: string; deployId?: string; error?: string;
-  pushedAt?: string; verifiedAt?: string; updatedAt: string;
+  lastAIRequest?: string; pushedAt?: string; verifiedAt?: string; updatedAt: string;
 };
 export function publicationHash(a: ArticleInput) {
   return createHash("sha256").update(JSON.stringify([
@@ -30,6 +31,6 @@ export function serialize(a: ArticleInput, id: string) {
 }
 export function assertPublishable(a: Article, now = Date.now()) {
   inputSchema.parse(a);
-  if (!a.approvedHash || a.approvedHash !== publicationHash(a)) throw new Error("Сначала одобрите текущую версию статьи.");
-  if (Date.parse(a.publishedAt) > now) throw new Error("Дата публикации ещё не наступила. Планировщик появится на следующем этапе.");
+  if (!a.approvedHash || a.approvedHash !== publicationHash(a)) throw new Error("Approve the current article version first.");
+  if (Date.parse(a.publishedAt) > now) throw new Error("The publication date is in the future. Use the Calendar to schedule publication.");
 }

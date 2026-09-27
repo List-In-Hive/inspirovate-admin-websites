@@ -13,12 +13,12 @@ import { commitArticle, pushArticle, matchesManifest } from "../lib/publisher";
 const exec = promisify(execFile);
 const article: Article = { id: "test-publication", siteId: "flowers", revision: 1, status: "draft", title: 'A title: "flowers"', slug: "dinner-flowers", description: "A simple description", publishedAt: "2026-01-01T00:00:00Z", coverImage: "/images/hero.webp", coverAlt: "Flowers", body: "## A small gathering\n\nChoose flowers for your table.", updatedAt: new Date().toISOString() };
 test("approval is tied to exact content and future dates are blocked", () => {
-  assert.throws(() => assertPublishable(article), /одобрите/);
+  assert.throws(() => assertPublishable(article), /Approve/);
   const approved = { ...article, approvedHash: publicationHash(article) };
   assert.doesNotThrow(() => assertPublishable(approved));
-  assert.throws(() => assertPublishable({ ...approved, body: "changed" }), /одобрите/);
+  assert.throws(() => assertPublishable({ ...approved, body: "changed" }), /Approve/);
   const future = { ...article, publishedAt: "2999-01-01T00:00:00Z" };
-  assert.throws(() => assertPublishable({ ...future, approvedHash: publicationHash(future) }), /ещё не наступила/);
+  assert.throws(() => assertPublishable({ ...future, approvedHash: publicationHash(future) }), /in the future/);
 });
 test("frontmatter safely roundtrips special characters and rejects unsafe paths", () => {
   const parsed = matter(serialize(article, article.id));
@@ -59,13 +59,21 @@ test("real Git retry after commit and push creates exactly one article commit", 
     const first = await commitArticle(approved, target);
     const retryBeforePush = await commitArticle(approved, target);
     assert.equal(first, retryBeforePush);
+    // Hosted runners are ephemeral: recover a recorded commit lost before push.
+    await rm(target.checkout, { recursive: true, force: true });
+    const originalDate = process.env.GIT_COMMITTER_DATE;
+    process.env.GIT_COMMITTER_DATE = '2030-01-01T00:00:00Z';
+    let recovered: string;
+    try { recovered = await commitArticle({ ...approved, commit: first }, target); }
+    finally { if (originalDate === undefined) delete process.env.GIT_COMMITTER_DATE; else process.env.GIT_COMMITTER_DATE = originalDate; }
+    assert.notEqual(recovered, first);
     await pushArticle(target);
-    const retryAfterPush = await commitArticle({ ...approved, commit: first }, target);
-    assert.equal(first, retryAfterPush);
+    const retryAfterPush = await commitArticle({ ...approved, commit: recovered }, target);
+    assert.equal(recovered, retryAfterPush);
     await pushArticle(target);
     assert.equal(await run(target.checkout, "rev-list", "--count", "HEAD"), "2");
-    assert.equal(await run(remote, "rev-parse", "main"), first);
+    assert.equal(await run(remote, "rev-parse", "main"), recovered);
     assert.equal(await readFile(path.join(target.checkout, `content/blog/${article.slug}.md`), "utf8"), serialize(article, article.id));
-    await assert.rejects(() => commitArticle({ ...approved, id: "another-publication" }, target), /уже занят/);
+    await assert.rejects(() => commitArticle({ ...approved, id: "another-publication" }, target), /already in use/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

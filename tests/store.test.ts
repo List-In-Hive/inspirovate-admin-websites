@@ -14,11 +14,11 @@ test("saving an edit revokes approval; stale edits and concurrent writes are rej
     const saved = await saveArticle(input);
     const approved = await actOnArticle(saved.id, "approve", saved.revision);
     assert.equal(approved.status, "approved");
-    await assert.rejects(() => saveArticle({ ...saved, body: "Stale" }, saved.id), /другом окне/);
+    await assert.rejects(() => saveArticle({ ...saved, body: "Stale" }, saved.id), /another window/);
     const edited = await saveArticle({ ...approved, body: "Edited" }, saved.id);
     assert.equal(edited.status, "draft"); assert.equal(edited.approvedHash, undefined);
-    await assert.rejects(() => actOnArticle(edited.id, "publish", edited.revision), /одобрите/);
-    await withLock(async () => { await assert.rejects(() => withLock(async () => {}), /другая операция/); });
+    await assert.rejects(() => actOnArticle(edited.id, "publish", edited.revision), /Approve/);
+    await withLock(async () => { await assert.rejects(() => withLock(async () => {}), /Another operation/); });
     assert.equal((await readArticles()).length, 1);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

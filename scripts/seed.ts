@@ -2,7 +2,7 @@ import { readArticles } from "../lib/store";
 import { saveArticle } from "../lib/service";
 
 async function seed() {
-  if ((await readArticles()).length) { console.log("Черновики уже есть; ничего не изменено."); return; }
+  if ((await readArticles()).length) { console.log("Drafts already exist; nothing was changed."); return; }
   const draft = await saveArticle({
     title: "Flowers for a relaxed dinner table",
     slug: "flowers-for-a-relaxed-dinner-table",
@@ -28,6 +28,6 @@ A single vase can make a lovely focal point on a small round table. For a longer
 
 Choose flowers you enjoy looking at, and let the setting feel like your home. Browse [our flower collection](/flowers) for inspiration, or [tell us about your gathering](/contact?type=event) so we can discuss an arrangement with you.`,
   });
-  console.log(`Создан черновик: ${draft.title}. Он не одобрен и не опубликован.`);
+  console.log(`Draft created: ${draft.title}. It has not been approved or published.`);
 }
 seed().catch(error => { console.error(error.message); process.exitCode = 1; });

@@ -1,7 +1,7 @@
 import { assertLocal, failure, json, readBody } from "@/lib/http";
 import { readArticles } from "@/lib/store";
 import { saveArticle } from "@/lib/service";
-export const runtime = "nodejs";
+
 export async function GET(request: Request) {
   try { assertLocal(request); const data = await readArticles(); return json({ data, total: data.length }); } catch (e) { return failure(e); }
 }

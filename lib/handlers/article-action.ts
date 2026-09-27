@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { assertLocal, failure, json, readBody } from "@/lib/http";
 import { actOnArticle } from "@/lib/service";
-export const runtime = "nodejs";
+
 export async function POST(request: Request, context: { params: Promise<{ id: string; action: string }> }) {
   try {
     assertLocal(request); const { id, action } = await context.params;

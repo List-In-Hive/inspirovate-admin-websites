@@ -2,10 +2,10 @@ import { DataProvider, HttpError } from "react-admin";
 export async function api(url: string, method = "GET", body?: unknown) {
   const response = await fetch(url, { method, headers: body === undefined ? {} : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const result = await response.json();
-  if (!response.ok) throw new HttpError(result.message || "Ошибка запроса", response.status, result);
+  if (!response.ok) throw new HttpError(result.message || "Request failed", response.status, result);
   return result;
 }
-const unsupported = () => Promise.reject(new Error("Это действие пока недоступно"));
+const unsupported = () => Promise.reject(new Error("This action is not available yet"));
 const dataProvider: DataProvider = {
   getList: async (resource, params) => {
     const result = await api(`/api/${resource}`);

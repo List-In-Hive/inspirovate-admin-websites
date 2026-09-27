@@ -2,7 +2,7 @@ name: Blog scheduler
 on:
   schedule:
     # Avoid the top-of-hour peak while keeping five-minute checks.
-    - cron: '2-59/5 * * * *'
+    - cron: '4,9,14,19,24,29,34,39,44,49,54,59 * * * *'
   workflow_dispatch:
 permissions:
   contents: read

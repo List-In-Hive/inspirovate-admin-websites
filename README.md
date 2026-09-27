@@ -86,7 +86,7 @@ Each month is divided into N parts using day `1 + floor(index × daysInMonth / N
 
 ## Server scheduler: independent of the Mac
 
-The prepared `.github/workflows/scheduler.yml` workflow runs `npm run scheduler:once` every five minutes and supports **Actions → Blog scheduler → Run workflow**.
+The prepared `.github/workflows/scheduler.yml` workflow runs `npm run scheduler:once` every five minutes (minutes 02, 07, 12, …, 57 UTC, avoiding the top-of-hour peak) and supports **Actions → Blog scheduler → Run workflow**. Confirm automatic triggering in Actions with the `event:schedule` filter; a successful manual `workflow_dispatch` run does not verify the cron trigger. Check both the job result and the article status in the admin calendar.
 
 The scheduler job uses the `WEBSITES` GitHub environment. Add these Actions secrets under **Settings → Environments → WEBSITES → Environment secrets** (repository secrets also work):
 

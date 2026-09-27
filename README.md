@@ -88,7 +88,7 @@ Each month is divided into N parts using day `1 + floor(index × daysInMonth / N
 
 The prepared `.github/workflows/scheduler.yml` workflow runs `npm run scheduler:once` every five minutes and supports **Actions → Blog scheduler → Run workflow**.
 
-After the code is ready for GitHub, add these Actions secrets to the admin repository:
+The scheduler job uses the `WEBSITES` GitHub environment. Add these Actions secrets under **Settings → Environments → WEBSITES → Environment secrets** (repository secrets also work):
 
 - `DATABASE_URL`: the same Supabase Session pooler connection.
 - `OPENAI_API_KEY`: the OpenAI key.

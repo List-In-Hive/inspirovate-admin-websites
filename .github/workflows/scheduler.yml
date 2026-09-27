@@ -12,6 +12,7 @@ jobs:
   schedule:
     if: github.event_name == 'workflow_dispatch' || vars.BLOG_SCHEDULER_ENABLED == 'true'
     runs-on: ubuntu-latest
+    environment: WEBSITES
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

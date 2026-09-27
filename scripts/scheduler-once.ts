@@ -6,7 +6,7 @@ async function main() {
     const missing = ['DATABASE_URL', 'OPENAI_API_KEY'].filter(key => !process.env[key]?.trim());
     if (process.env.GITHUB_ACTIONS && !process.env.FLOWERS_GITHUB_TOKEN?.trim() && !process.env.GITHUB_PROJECTS_TOKEN?.trim()) missing.push('PROJECTS_GITHUB_TOKEN');
     if (missing.length) {
-      console.error(`Missing Actions secrets: ${missing.join(', ')}. Add them in repository Settings > Secrets and variables > Actions > Secrets, not Variables.`);
+      console.error(`Missing Actions secrets: ${missing.join(', ')}. Add them in Settings > Environments > WEBSITES > Environment secrets, or as repository Actions secrets. Secrets in other environments and Variables are not used.`);
       process.exitCode = 1;
       return;
     }

@@ -92,7 +92,9 @@ After the code is ready for GitHub, add these Actions secrets to the admin repos
 
 - `DATABASE_URL`: the same Supabase Session pooler connection.
 - `OPENAI_API_KEY`: the OpenAI key.
-- `GITHUB_PROJECTS_TOKEN`: a fine-grained token with Contents read/write access to the selected client website repositories. Organization approval may be required. The legacy `FLOWERS_GITHUB_TOKEN` is still supported for Flowers only.
+- `PROJECTS_GITHUB_TOKEN`: a fine-grained token with Contents read/write access to the selected client website repositories. Organization approval may be required. GitHub reserves secret names starting with `GITHUB_`; the workflow maps this secret to the application's `GITHUB_PROJECTS_TOKEN` environment variable. Keep `GITHUB_PROJECTS_TOKEN` as the variable name on Render and in local settings. The legacy `FLOWERS_GITHUB_TOKEN` is still supported for Flowers only.
+
+Set the Actions repository variable `BLOG_SCHEDULER_ENABLED` to `true` to enable scheduled processing. A manual **Run workflow** processes due articles even when this variable is absent or false.
 
 An optional Actions variable, `OPENAI_MODEL`, selects the model. Git receives the token through environment-based configuration; it is not stored in repository URLs or Git config files. Local publishing continues to use SSH when no token is configured.
 

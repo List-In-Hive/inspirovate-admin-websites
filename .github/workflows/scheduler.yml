@@ -28,5 +28,5 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6-terra' }}
           OPENAI_IMAGE_MODEL: ${{ vars.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-sunburst' }}
-          GITHUB_PROJECTS_TOKEN: ${{ secrets.GITHUB_PROJECTS_TOKEN }}
+          GITHUB_PROJECTS_TOKEN: ${{ secrets.PROJECTS_GITHUB_TOKEN }}
           FLOWERS_GITHUB_TOKEN: ${{ secrets.FLOWERS_GITHUB_TOKEN }}

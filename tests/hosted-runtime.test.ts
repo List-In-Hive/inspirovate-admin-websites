@@ -10,7 +10,7 @@ test('hosted Flowers source uses a server checkout even with a legacy Mac overri
     process.env.FLOWERS_REPO = '/Users/admin/Desktop/IC/flowers';
     process.env.ADMIN_HOSTED = 'true';
     assert.equal(getSite().repoPath, path.join(dataDir, 'source-flowers'));
-    assert.throws(() => assertLocal(new Request('http://127.0.0.1:3100/api/projects', { headers: { host: '127.0.0.1:3100' } })), /Hosted admin access/);
+    assert.throws(() => assertLocal(new Request('http://127.0.0.1:3100/api/projects', { headers: { host: '127.0.0.1:3100' } })), /Hosted access/);
     delete process.env.ADMIN_HOSTED;
     assert.equal(getSite().repoPath, process.env.FLOWERS_REPO);
   } finally {

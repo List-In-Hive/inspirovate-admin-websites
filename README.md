@@ -1,6 +1,6 @@
 # Inspirovate Admin
 
-Cloud migration is in progress. See [DEPLOYMENT.md](DEPLOYMENT.md) for the prepared server runtime and remaining activation steps. Hosted access is intentionally blocked until authentication is configured. The scheduled GitHub job stays disabled until `BLOG_SCHEDULER_ENABLED=true` is set in repository Actions variables; manual dispatch still runs real work.
+Cloud migration is in progress. See [DEPLOYMENT.md](DEPLOYMENT.md) for the password-protected server runtime and remaining activation steps. Hosted access is blocked until credentials are configured. The scheduled GitHub job stays disabled until `BLOG_SCHEDULER_ENABLED=true` is set in repository Actions variables; manual dispatch still runs real work.
 
 An English-language content admin built with Next.js and React-admin for the Petal & Stem website. This repository contains the admin interface, its API, database access and publishing scheduler in separate files. The public Flowers website remains in its own repository and runs independently.
 
@@ -18,7 +18,7 @@ npm run dev
 
 Open http://127.0.0.1:3100. For a local production build, run `npm run build`, then `npm start`. Stop the previous server before starting another instance on the same port.
 
-The local interface has no login, as requested for the pilot. It binds to `127.0.0.1`, and API routes validate Host, Origin and request format. Add server-side authentication before hosting this interface publicly or exposing it through a tunnel.
+The local interface has no login, as requested for the pilot. It binds to `127.0.0.1`, and API routes validate Host, Origin and request format. Hosted mode requires password authentication; use the documented server entry point for hosting.
 
 The Next.js server provides both the interface and API during local testing. No scheduler needs to run on the Mac. Production scheduling is a separate server process; its workflow is prepared but must be configured and deployed before it can run.
 

@@ -2,6 +2,9 @@ import { DataProvider, HttpError } from "react-admin";
 export async function api(url: string, method = "GET", body?: unknown) {
   const response = await fetch(url, { method, headers: body === undefined ? {} : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const result = await response.json();
+  // Leave the React-admin hash router and clear its cached private records.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  if (response.status === 401 && typeof window !== 'undefined') window.location.assign('/login');
   if (!response.ok) throw new HttpError(result.message || "Request failed", response.status, result);
   return result;
 }

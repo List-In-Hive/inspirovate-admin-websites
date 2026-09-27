@@ -5,7 +5,7 @@ import Knowledge from "./Knowledge";
 import Library from "./Library";
 import ArticlePreparation from "./ArticlePreparation";
 import BlogThumbnail from "./BlogThumbnail";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import {
   Admin, Resource, List, Datagrid, TextField, DateField, FunctionField,
   Create, Edit, Show, SimpleForm, TextInput, SelectInput, required, Toolbar, SaveButton,
@@ -30,6 +30,7 @@ import type { Article } from "@/lib/article";
 
 const labels = { draft: "Draft", approved: "Approved", deploying: "Publishing", published: "Published", failed: "Needs attention" };
 const statusChoices = Object.entries(labels).map(([id, name]) => ({ id, name }));
+const HostedContext = createContext(false);
 const theme = { ...defaultTheme, palette: { ...defaultTheme.palette, primary: { main: "#2e5546" }, secondary: { main: "#a47755" }, background: { default: "#f5f6f3", paper: "#fff" } }, shape: { borderRadius: 10 }, typography: { fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" } };
 
 function Status() {
@@ -48,7 +49,7 @@ function ProjectOverview() {
     <Alert severity="info" sx={{mt:3}}>Scheduled articles publish the latest saved version at their assigned time. Review drafts and adjust dates in this project’s calendar.</Alert>
   </Box>;
 }
-function ProjectMenu() { const projects=useCatalog().projects.filter(p=>!p.archivedAt);return <Menu><Menu.Item to="/projects" primaryText="Projects" leftIcon={<LanguageIcon />} />{projects.map(project=><Menu.Item key={project.id} to={projectPath(project.id)} primaryText={project.name} leftIcon={<ArticleIcon />} />)}</Menu>; }
+function ProjectMenu() { const projects=useCatalog().projects.filter(p=>!p.archivedAt);const hosted=useContext(HostedContext);const notify=useNotify();return <Menu><Menu.Item to="/projects" primaryText="Projects" leftIcon={<LanguageIcon />} />{projects.map(project=><Menu.Item key={project.id} to={projectPath(project.id)} primaryText={project.name} leftIcon={<ArticleIcon />} />)}{hosted&&<Button sx={{m:2}} onClick={async()=>{try{const response=await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw new Error('Sign-out failed. Please try again.');window.location.replace('/login');}catch(e){notify((e as Error).message,{type:'error'});}}}>Sign out</Button>}</Menu>; }
 function ProjectLayout(props:LayoutProps) { return <Layout {...props} menu={ProjectMenu} />; }
 function MissingPage() { return <Box p={4}><Typography variant="h5">Select a project</Typography><Button href="#/projects">All projects</Button></Box>; }
 function ArticleList() {
@@ -133,7 +134,7 @@ function Preview() {
   </Box>;
 }
 function ArticleShow() { return <Show title="Review article" actions={false}><Preview /></Show>; }
-export default function AdminApp() {return <ProjectCatalog><CatalogAdmin /></ProjectCatalog>;}
+export default function AdminApp({hosted=false}:{hosted?:boolean}) {return <HostedContext.Provider value={hosted}><ProjectCatalog><CatalogAdmin /></ProjectCatalog></HostedContext.Provider>;}
 function CatalogAdmin() {
   const projects=useCatalog().projects.filter(p=>!p.archivedAt);
   return <Admin title="Inspirovate" dashboard={Projects} layout={ProjectLayout} catchAll={MissingPage} dataProvider={dataProvider} theme={theme} darkTheme={null} disableTelemetry>

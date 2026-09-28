@@ -1,8 +1,8 @@
 name: Blog scheduler
 on:
   schedule:
-    # Avoid the top-of-hour peak while keeping five-minute checks.
-    - cron: '4,9,14,19,24,29,34,39,44,49,54,59 * * * *'
+    # Avoid the top-of-hour peak while keeping hourly checks.
+    - cron: '4 * * * *'
   workflow_dispatch:
   repository_dispatch:
     types: [inspirovate-supabase-schedule]

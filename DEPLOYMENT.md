@@ -44,15 +44,15 @@ The native GitHub schedule may be delayed or dropped before a run appears. The o
 
 **Configure scheduler backup → Run workflow → check** only verifies dispatch permission and available database extensions. It stores no credentials in Supabase and activates no cron job. The GitHub token must include this admin repository with **Contents: write**; publishing access to client repositories alone is insufficient. The permission probe uses an event with no matching workflow and does not generate articles.
 
-After choosing this infrastructure option, run the same setup workflow with **install**. It enables `pg_cron` and `pg_net`, stores the existing `PROJECTS_GITHUB_TOKEN` encrypted in Supabase Vault, and configures `inspirovate-blog-dispatch` at minutes 01, 06, 11, …, 56 UTC. The token is transmitted only from the protected GitHub environment to the configured Supabase database, then used only against GitHub's API. Do not log or copy it into SQL snippets. The application schema and dispatch function are inaccessible to public roles.
+After choosing this infrastructure option, run the same setup workflow with **install**. It enables `pg_cron` and `pg_net`, stores the existing `PROJECTS_GITHUB_TOKEN` encrypted in Supabase Vault, and configures `inspirovate-blog-dispatch` once an hour at minute 21 UTC. The token is transmitted only from the protected GitHub environment to the configured Supabase database, then used only against GitHub's API. Do not log or copy it into SQL snippets. The application schema and dispatch function are inaccessible to public roles.
 
-The backup skips dispatch when no active project has automation enabled, or a native GitHub check has been recorded within eight minutes. A recent manual check cannot suppress it. GitHub's existing concurrency group and database locks also apply to dispatched runs. The repository variable `BLOG_SCHEDULER_ENABLED` still gates actual automatic processing.
+The backup skips dispatch when no active project has automation enabled, or a native GitHub check has been recorded within 55 minutes. A recent manual check cannot suppress it. GitHub's existing concurrency group and database locks also apply to dispatched runs. The repository variable `BLOG_SCHEDULER_ENABLED` still gates actual automatic processing.
 
 Verify an actual `repository_dispatch` run following a Supabase cron tick, then check the calendar's automatic heartbeat and article result. A successful setup workflow or HTTP 204 alone is not end-to-end verification. Supabase's `cron.job_run_details` tracks timer execution; `net._http_response` tracks HTTP delivery and is retained temporarily. Setup with **disable** deactivates only this backup and preserves native GitHub scheduling. Re-running **install** updates the stored token and re-enables the job, so rotate the backup credential there when the GitHub secret changes.
 
-This is a workaround for native schedule delivery, not a repair of GitHub's internal scheduler. GitHub queue delays and token expiry can still prevent execution. The calendar continues to warn when no automatic worker heartbeat has arrived recently.
+This is a workaround for native schedule delivery, not a repair of GitHub's internal scheduler. GitHub queue delays and token expiry can still prevent execution. The calendar warns when no automatic worker heartbeat has arrived for 90 minutes, allowing for the hourly interval and queue delays.
 
-Once enabled, the workflow checks every five minutes. GitHub queue delays and website builds mean publication is not guaranteed at an exact minute. Check Actions results, Calendar heartbeat and individual publication status.
+Once enabled, the workflow checks once an hour. A due article is processed on the next hourly check, potentially almost an hour after its target time; GitHub queue delays and website builds can add further delay. Check Actions results, Calendar heartbeat and individual publication status.
 
 ## Remaining activation steps
 

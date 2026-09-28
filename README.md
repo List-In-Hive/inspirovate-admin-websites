@@ -86,7 +86,7 @@ Each month is divided into N parts using day `1 + floor(index × daysInMonth / N
 
 ## Server scheduler: independent of the Mac
 
-The prepared `.github/workflows/scheduler.yml` workflow runs `npm run scheduler:once` every five minutes (minutes 04, 09, 14, …, 59 UTC, avoiding the top-of-hour peak) and supports **Actions → Blog scheduler → Run workflow**. Confirm automatic triggering in Actions with the `event:schedule` filter; a successful manual `workflow_dispatch` run does not verify the cron trigger. Check both the job result and the article status in the admin calendar.
+The prepared `.github/workflows/scheduler.yml` workflow runs `npm run scheduler:once` once an hour (minute 04 UTC, avoiding the top-of-hour peak) and supports **Actions → Blog scheduler → Run workflow**. Confirm automatic triggering in Actions with the `event:schedule` filter; a successful manual `workflow_dispatch` run does not verify the cron trigger. Check both the job result and the article status in the admin calendar.
 
 The scheduler job uses the `WEBSITES` GitHub environment. Add these Actions secrets under **Settings → Environments → WEBSITES → Environment secrets** (repository secrets also work):
 
@@ -98,7 +98,7 @@ Set the Actions repository variable `BLOG_SCHEDULER_ENABLED` to `true` to enable
 
 An optional Actions variable, `OPENAI_MODEL`, selects the model. Git receives the token through environment-based configuration; it is not stored in repository URLs or Git config files. Local publishing continues to use SSH when no token is configured.
 
-The workflow must be on the default branch, with GitHub Actions enabled and sufficient execution minutes. Five-minute checks consume Actions minutes separately from OpenAI usage. Merely having the workflow in the source code does not activate it: verify a successful Actions run and the last scheduler check shown in the Calendar.
+The workflow must be on the default branch, with GitHub Actions enabled and sufficient execution minutes. Hourly checks consume Actions minutes separately from OpenAI usage. Merely having the workflow in the source code does not activate it: verify a successful Actions run and the last scheduler check shown in the Calendar.
 
 The Calendar tracks automatic checks separately from manual/local checks. A GitHub `schedule` event or the explicitly configured Supabase `repository_dispatch` refreshes the automatic heartbeat; a successful manual run cannot make the automatic indicator green. Checks before this tracking was introduced have an unknown trigger and do not count as proof of automatic scheduling. A heartbeat confirms the worker started processing that project, not that every article succeeded; article failures remain visible on their calendar cards.
 

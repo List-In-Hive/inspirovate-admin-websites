@@ -32,14 +32,18 @@ test('backup dispatch respects disabled projects, native freshness, credentials 
     assert.equal(await dispatch(),null);
     await db.exec("UPDATE inspirovate.projects SET payload='{}'; INSERT INTO inspirovate.worker VALUES('schedule',now())");
     assert.equal(await dispatch(),null); // Native cron gets priority.
+    await db.exec("UPDATE inspirovate.worker SET automatic_heartbeat=now()-interval '54 minutes'");
+    assert.equal(await dispatch(),null); // A recent hourly native check suppresses backup.
     await db.exec("UPDATE inspirovate.worker SET last_trigger='manual'");
     assert.equal(await dispatch(),1); // A manual check cannot mask the outage.
     assert.equal(await dispatch(),null); // Repeated invocation is throttled.
     const request = (await db.query<{url:string,body:unknown}>('SELECT url,body FROM net.requests')).rows[0];
     assert.equal(request.url,'https://api.github.com/repos/List-In-Hive/inspirovate-admin-websites/dispatches');
     assert.deepEqual(request.body,{event_type:'inspirovate-supabase-schedule'});
-    await db.exec("UPDATE inspirovate.scheduler_dispatch SET last_requested_at=now()-interval '5 minutes'; UPDATE inspirovate.worker SET last_trigger='supabase'");
+    await db.exec("UPDATE inspirovate.scheduler_dispatch SET last_requested_at=now()-interval '60 minutes'; UPDATE inspirovate.worker SET last_trigger='supabase'");
     assert.equal(await dispatch(),2); // Backup remains periodic while native cron is down.
+    await db.exec("UPDATE inspirovate.scheduler_dispatch SET last_requested_at=now()-interval '60 minutes'; UPDATE inspirovate.worker SET last_trigger='schedule',automatic_heartbeat=now()-interval '60 minutes'");
+    assert.equal(await dispatch(),3); // A missed native hour allows fallback.
     const publicExecute = (await db.query<{allowed:boolean}>("SELECT has_function_privilege('public','inspirovate.dispatch_scheduler()','EXECUTE') AS allowed")).rows[0];
     assert.equal(publicExecute.allowed,false);
   } finally { await db.close(); }

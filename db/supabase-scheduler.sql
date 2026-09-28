@@ -18,7 +18,7 @@ DECLARE
 BEGIN
   SELECT * INTO config FROM inspirovate.scheduler_dispatch WHERE id FOR UPDATE;
   IF NOT FOUND OR NOT config.enabled THEN RETURN NULL; END IF;
-  IF config.last_requested_at > now() - interval '4 minutes' THEN RETURN NULL; END IF;
+  IF config.last_requested_at > now() - interval '55 minutes' THEN RETURN NULL; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM inspirovate.projects p JOIN inspirovate.schedules s ON s.id=p.id
     WHERE p.archived_at IS NULL AND p.payload->>'localOnly' IS DISTINCT FROM 'true'
@@ -26,7 +26,7 @@ BEGIN
   ) THEN RETURN NULL; END IF;
   -- Native GitHub cron remains primary when it has checked recently.
   IF EXISTS (SELECT 1 FROM inspirovate.worker
-    WHERE last_trigger='schedule' AND automatic_heartbeat > now() - interval '8 minutes')
+    WHERE last_trigger='schedule' AND automatic_heartbeat > now() - interval '55 minutes')
     THEN RETURN NULL; END IF;
   IF config.repository !~ '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' THEN
     RAISE EXCEPTION 'Invalid scheduler repository';

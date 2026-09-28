@@ -25,7 +25,8 @@ test('native and Supabase scheduler events verify automation; manual and local c
     assert.equal(automaticWorkerActive(stamp,stamp.getTime()+60000),true);
     await db.query(heartbeatSql,['flowers','manual']);
     assert.deepEqual((await worker()).automatic_heartbeat,stamp);
-    assert.equal(automaticWorkerActive((await worker()).automatic_heartbeat,stamp.getTime()+21*60000),false);
+    assert.equal(automaticWorkerActive((await worker()).automatic_heartbeat,stamp.getTime()+89*60000),true);
+    assert.equal(automaticWorkerActive(stamp,stamp.getTime()+90*60000),false);
     await db.query(heartbeatSql,['flowers','local']);
     assert.deepEqual((await worker()).automatic_heartbeat,stamp);
     assert.equal(automaticWorkerActive(stamp,stamp.getTime()-1),false);

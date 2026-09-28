@@ -15,5 +15,5 @@ export const heartbeatSql = `INSERT INTO inspirovate.worker(id,heartbeat,automat
 export function automaticWorkerActive(heartbeat: string | Date | null | undefined, now = Date.now()) {
   if (!heartbeat) return false;
   const age = now - new Date(heartbeat).getTime();
-  return age >= 0 && age < 20 * 60 * 1000;
+  return age >= 0 && age < 90 * 60 * 1000;
 }

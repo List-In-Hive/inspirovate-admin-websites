@@ -50,7 +50,7 @@ try {
       else await client.query("SELECT vault.create_secret($1,'inspirovate_scheduler_github_token','GitHub scheduler backup dispatch')",[token]);
       await client.query(`INSERT INTO inspirovate.scheduler_dispatch(id,enabled,repository) VALUES(true,true,$1)
         ON CONFLICT(id) DO UPDATE SET enabled=true,repository=excluded.repository`,[repository]);
-      await client.query("SELECT cron.schedule('inspirovate-blog-dispatch','1-56/5 * * * *','SELECT inspirovate.dispatch_scheduler();')");
+      await client.query("SELECT cron.schedule('inspirovate-blog-dispatch','21 * * * *','SELECT inspirovate.dispatch_scheduler();')");
       await client.query("SELECT cron.alter_job(jobid,active:=true) FROM cron.job WHERE jobname='inspirovate-blog-dispatch'");
       console.log('Supabase backup installed. The next cron tick will dispatch if native scheduling is stale.');
     }

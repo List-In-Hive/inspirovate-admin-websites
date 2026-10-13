@@ -47,7 +47,7 @@ test('editorial checks invalidate changed text, allow scheduling date changes an
  assert.equal(editorialHash(article),editorialHash({...article,publishedAt:'2030-01-01T00:00:00Z'} as Article));
  assert.notEqual(editorialHash(article),editorialHash({...article,body:'Changed'}));
  assert.equal(contentIssues({...article,body:'[Useful](/flowers)'},['/flowers']).length,0);
- assert.equal(contentIssues({...article,body:'![extra](/images/extra.webp) [Fake](https://invented.example)'},[]).filter(i=>i.severity==='blocker').length,3);
+ assert.equal(contentIssues({...article,body:'![extra](/images/extra.webp) [Fake](https://invented.example)'},[]).filter(i=>i.severity==='blocker').length,2);
 });
 
 test('WebP conversion bounds dimensions and bytes and rejects undersized images',async()=>{
@@ -87,11 +87,15 @@ test('history preserves every changed snapshot; knowledge, tasks and photos stay
   const seed=path.join(dir,'seed');await mkdir(path.join(seed,'content/blog'),{recursive:true});await mkdir(path.join(seed,'public/images'),{recursive:true});
   await writeFile(path.join(seed,'content/blog/old.md'),'Existing article stays untouched');await git(seed,'init','-b','main');await git(seed,'config','user.name','Test');await git(seed,'config','user.email','test@example.com');await git(seed,'add','.');await git(seed,'commit','-m','Seed');
   const remote=path.join(dir,'remote.git');await git(dir,'clone','--bare',seed,remote);const target={checkout:path.join(dir,'publisher'),repository:remote,branch:'main'};
-  const ready={...article,coverImage:imagePath};ready.approvedHash=publicationHash(ready);const commit=await commitArticle(ready,target);await pushArticle(target);
+  const secondBytes=await optimizePhoto(await sharp({create:{width:1536,height:1024,channels:3,background:'#123456'}}).png().toBuffer());
+  const secondHash=createHash('sha256').update(secondBytes.bytes).digest('hex');const secondPath=`/images/blog-${secondHash}.webp`;
+  await store.saveMedia({...media,id:secondHash,path:secondPath},secondBytes.bytes);
+  const ready={...article,coverImage:imagePath,body:article.body+`\n\n![Detail](${secondPath})`};ready.approvedHash=publicationHash(ready);const commit=await commitArticle(ready,target);await pushArticle(target);
   assert.equal(await commitArticle({...ready,commit},target),commit);
   assert.deepEqual(await readFile(path.join(target.checkout,'public'+imagePath)),optimized.bytes);
+  assert.deepEqual(await readFile(path.join(target.checkout,'public'+secondPath)),secondBytes.bytes);
   assert.equal(await readFile(path.join(target.checkout,'content/blog/old.md'),'utf8'),'Existing article stays untouched');
   assert.equal(await readFile(path.join(target.checkout,'content/blog/'+article.slug+'.md'),'utf8'),serialize(ready,ready.id));
-  assert.deepEqual((await git(target.checkout,'diff-tree','--no-commit-id','--name-only','-r',commit)).split('\n').sort(),[`content/blog/${article.slug}.md`,`public${imagePath}`].sort());
+  assert.deepEqual((await git(target.checkout,'diff-tree','--no-commit-id','--name-only','-r',commit)).split('\n').sort(),[`content/blog/${article.slug}.md`,`public${imagePath}`,`public${secondPath}`].sort());
  }finally{projects.pop();delete globals.adminPool;delete globals.adminDatabaseReady;delete process.env.DATABASE_URL;await db.close();await rm(dir,{recursive:true,force:true});}
 });

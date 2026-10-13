@@ -1,8 +1,9 @@
+import { placePhotos } from "./article-format";
 import { editorialContext } from "./knowledge";
 import { z } from "zod";
 import { withLock,readArticles,writeArticles } from "./store";
 import { readGeneration,writeGeneration,readProfile,type Generation } from "./postgres-store";
-import { createAIContent,openAIConfigured,openAIModel } from "./openai";
+import { createAIContent,openAIConfigured,contentModels } from "./openai";
 import { databaseConfigured } from "./database";
 import { inputSchema } from "./article";
 import { validateAgainstRepo } from "./publisher";
@@ -16,14 +17,14 @@ export async function rewriteArticle(id:string,input:unknown) {
     if(article.lastAIRequest===request.id)return article;
     if(article.revision!==request.revision)throw new Error('The article has changed. Refresh the page before requesting an AI revision.');
     if(article.commit||article.status==='deploying')throw new Error('This article has already been sent to the website.');
-    if(job&&!job.output)throw new Error('This request was already sent. Check the OpenAI logs before starting another paid request.');
+    if(job&&!job.output)throw new Error('This request was already sent. Check the OpenAI and Claude logs before starting another paid request.');
     if(!job){
-      job={id:request.id,kind:'revision',sourceRevision:article.revision,articleId:id,topic:request.prompt,coverImage:article.coverImage,coverAlt:article.coverAlt,model:openAIModel(),status:'generating',createdAt:new Date().toISOString()} satisfies Generation;
+      job={id:request.id,kind:'revision',sourceRevision:article.revision,articleId:id,topic:request.prompt,coverImage:article.coverImage,coverAlt:article.coverAlt,model:contentModels(),status:'generating',createdAt:new Date().toISOString()} satisfies Generation;
       await writeGeneration(job);
       try{Object.assign(job,await createAIContent(request.prompt,await readProfile(),[],article,await editorialContext(article.title,id)));job.status='generated';await writeGeneration(job);}
       catch(e){job.status='failed';job.error=(e as Error).message;await writeGeneration(job);throw e;}
     }
-    const changed={...article,...inputSchema.parse({...article,...job.output,slug:article.slug}),revision:article.revision+1,status:'draft' as const,approvedHash:undefined,error:undefined,lastAIRequest:request.id,updatedAt:new Date().toISOString()};
+    const changed={...article,...inputSchema.parse({...article,...job.output,slug:article.slug,body:placePhotos(job.output!.body,article.photos||[])}),format:job.output?.format||article.format,sources:job.output?.sources||article.sources,revision:article.revision+1,status:'draft' as const,approvedHash:undefined,error:undefined,lastAIRequest:request.id,updatedAt:new Date().toISOString()};
     await validateAgainstRepo(changed);
     await writeArticles(articles.map(a=>a.id===id?changed:a));
     job.status='succeeded';await writeGeneration(job);return changed;

@@ -26,3 +26,39 @@ export function nextMonths(now = new Date()) { const d=DateTime.fromJSDate(now).
 export function reviewDeadline(publishAt: string, generatedAt: string) {
   return new Date(Math.max(Date.parse(publishAt), Date.parse(generatedAt) + 86400000)).toISOString();
 }
+
+// A project's publishing cycle runs from its start day to the same day next month (days 1–28 exist in every month).
+export const scheduleDefaults = { perMonth: 4, enabled: false, latePolicy: 'review24h' as const, cycleStartDay: 1, timeZone: TIME_ZONE, publishHour: 8, planLeadDays: 10, approvalDays: 3 };
+export function defaultSchedule(now = new Date()) {
+  return { ...scheduleDefaults, cycleStartDay: Math.min(DateTime.fromJSDate(now).setZone(TIME_ZONE).day, 28) };
+}
+export type CycleSettings = Pick<typeof scheduleDefaults, 'perMonth' | 'cycleStartDay' | 'timeZone' | 'publishHour' | 'planLeadDays' | 'approvalDays'>;
+export function cycleStarts(now: Date, s: Pick<CycleSettings, 'cycleStartDay' | 'timeZone'>) {
+  const local = DateTime.fromJSDate(now).setZone(s.timeZone);
+  let start = local.startOf('day').set({ day: s.cycleStartDay });
+  if (local.day < s.cycleStartDay) start = start.minus({ months: 1 });
+  return [start, start.plus({ months: 1 })];
+}
+export function cycleSlots(start: DateTime, s: CycleSettings) {
+  if (!Number.isInteger(s.perMonth) || s.perMonth < 1 || s.perMonth > 28) throw new Error("Choose 1 to 28 articles per cycle.");
+  const days = start.plus({ months: 1 }).diff(start, 'days').days;
+  const planAt = start.minus({ days: s.planLeadDays });
+  // Drafts for the whole cycle are prepared together once the topic plan has had time for review.
+  const generateAt = planAt.plus({ days: s.approvalDays }).toUTC().toISO()!;
+  return {
+    key: start.toFormat('yyyy-MM-dd'), planAt: planAt.toUTC().toISO()!,
+    dates: Array.from({ length: s.perMonth }, (_, index) => ({
+      publishAt: start.plus({ days: Math.floor(index * days / s.perMonth) }).set({ hour: s.publishHour, minute: 0 }).toUTC().toISO()!, generateAt,
+    })),
+  };
+}
+// Older monthly slots that already hold drafts take the nearest date of the new cycle.
+export function remainingIndexes(dates: { publishAt: string }[], taken: string[]) {
+  const free = new Set(dates.map((_, index) => index));
+  for (const publishAt of taken) {
+    let best = -1;
+    for (const index of free) if (best < 0 || Math.abs(Date.parse(dates[index].publishAt) - Date.parse(publishAt)) < Math.abs(Date.parse(dates[best].publishAt) - Date.parse(publishAt))) best = index;
+    if (best >= 0) free.delete(best);
+  }
+  return [...free];
+}

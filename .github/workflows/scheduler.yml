@@ -16,7 +16,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.BLOG_SCHEDULER_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: WEBSITES
-    timeout-minutes: 15
+    # Up to six sequential image requests plus research and editorial checks.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,5 +34,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6-terra' }}
           OPENAI_IMAGE_MODEL: ${{ vars.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-sunburst' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-opus-5-5' }}
           GITHUB_PROJECTS_TOKEN: ${{ secrets.PROJECTS_GITHUB_TOKEN }}
           FLOWERS_GITHUB_TOKEN: ${{ secrets.FLOWERS_GITHUB_TOKEN }}

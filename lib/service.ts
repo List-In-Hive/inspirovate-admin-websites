@@ -1,3 +1,5 @@
+import { NeedsAttentionError } from './errors';
+import { formatSchema, photoPaths } from "./article-format";
 import { assertProjectReady } from "./project-catalog";
 import { publishImmediately } from "./publish-now";
 import { slots,writeSlot } from "./schedule-store";
@@ -27,7 +29,8 @@ export async function saveArticleUnlocked(input: unknown, id?: string, creationI
       if (current.commit || current.status === "deploying") throw new Error("The submitted article is locked. Use Git to edit published content for now.");
     }
     if (articles.some(a => a.slug === parsed.slug && a.id !== id)) throw new Error("This URL is already used by another draft.");
-    const article: Article = { ...parsed, id: id || creationId || randomUUID(), siteId: getSite().id, status: "draft", lastAIRequest: current?.lastAIRequest, revision: (current?.revision || 0) + 1, updatedAt: new Date().toISOString() };
+    const preparation = current ? {format:current.format,sources:current.sources,photos:current.photos} : creationId ? z.object({format:formatSchema.optional(),sources:z.array(z.object({url:z.url(),title:z.string()})).optional()}).parse(input) : {};
+    const article: Article = { ...parsed, ...preparation, id: id || creationId || randomUUID(), siteId: getSite().id, status: "draft", lastAIRequest: current?.lastAIRequest, revision: (current?.revision || 0) + 1, updatedAt: new Date().toISOString() };
     await validateAgainstRepo(article);
     await writeArticles([...articles.filter(a => a.id !== id), article]);
     return article;
@@ -66,9 +69,10 @@ export async function actOnArticleUnlocked(id: string, action: string, revision:
       assertPublishable(article);
       if(databaseConfigured()&&!article.commit){
         const result=await reviewArticleUnlocked(id);
-        if(!result.review.output?.ready)throw new Error('Editorial review found unresolved issues. Open the review report and revise the draft.');
+        if(!result.review.output?.ready)throw new NeedsAttentionError('Editorial review found unresolved issues. Open the review report and revise the draft.',article.revision);
         article=result.article;
-        if(!mediaId(article.coverImage))throw new Error('Generate the article photo before publishing.');
+        if(article.format && photoPaths(article).length!==article.format.photoCount)throw new NeedsAttentionError(`Expected ${article.format.photoCount} article photos. Generate the missing photos before publishing.`,article.revision);
+        if(!mediaId(article.coverImage))throw new NeedsAttentionError('Generate the article photo before publishing.',article.revision);
         article.approvedHash=publicationHash(article);
         articles=await readArticles();articles=articles.map(a=>a.id===id?article!:a);
       }

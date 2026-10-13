@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { hostedRuntime } from './runtime';
+import { adminOrigin, hostedRuntime } from './runtime';
 
 export const sessionCookie = '__Host-inspirovate-session';
 export const sessionSeconds = 8 * 60 * 60;
@@ -9,7 +9,7 @@ export class AccessError extends Error {
 export function authSettings() {
   const password = process.env.ADMIN_PASSWORD || '';
   const secret = process.env.ADMIN_SESSION_SECRET || '';
-  const origin = process.env.ADMIN_ORIGIN || process.env.RENDER_EXTERNAL_URL || '';
+  const origin = adminOrigin();
   let parsed: URL;
   try { parsed = new URL(origin); } catch { throw new AccessError('Hosted access is not configured.', 503); }
   if (password.length < 20 || secret.length < 32 || parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) {

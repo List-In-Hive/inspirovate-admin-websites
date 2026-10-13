@@ -1,5 +1,5 @@
 import type { AITask } from './content-store';
-// The caller holds the shared application lock. Persist intent before paying; never retry ambiguous failures automatically.
+// The caller holds the project mutation lock. Persist intent before paying; never retry ambiguous failures automatically.
 export async function paidTask<T>(initial:AITask<T>,read:(id:string)=>Promise<AITask<T>|undefined>,write:(task:AITask<T>)=>Promise<void>,run:()=>Promise<{output:T;responseId?:string;inputTokens?:number;outputTokens?:number}>){
  let task=await read(initial.id);
  if(task){

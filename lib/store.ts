@@ -25,14 +25,15 @@ export async function writeArticles(articles: Article[]) {
   await writeFile(temp, JSON.stringify(articles, null, 2) + "\n", { mode: 0o600 });
   await rename(temp, path.join(dataDir, "articles.json"));
 }
-// Serialize mutations across requests and Next.js workers. Never steal a lock:
+// Serialize mutations per project across requests and workers when using PostgreSQL.
+// Local JSON remains globally locked because projects share one file. Never steal a lock:
 // after a crash, the owner checks that the server stopped before removing it.
 export async function withLock<T>(work: () => Promise<T>): Promise<T> {
   if (databaseConfigured()) return withDatabaseLock(async()=>{
     const row=(await query('SELECT payload,archived_at FROM inspirovate.projects WHERE id=$1',[getSite().id])).rows[0];
     if(row?.archived_at)throw new Error('This project was removed. Restore it from Projects before making changes.');
     return row ? withProject(row.payload,work) : work();
-  });
+  },getSite().id);
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const lockPath = path.join(dataDir, "operation.lock");
   let lock;

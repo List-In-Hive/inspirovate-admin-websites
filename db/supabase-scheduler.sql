@@ -24,9 +24,9 @@ BEGIN
     WHERE p.archived_at IS NULL AND p.payload->>'localOnly' IS DISTINCT FROM 'true'
       AND s.payload->>'enabled' = 'true'
   ) THEN RETURN NULL; END IF;
-  -- Native GitHub cron remains primary when it has checked recently.
+  -- The always-on worker or native GitHub cron remains primary when it has checked recently.
   IF EXISTS (SELECT 1 FROM inspirovate.worker
-    WHERE last_trigger='schedule' AND automatic_heartbeat > now() - interval '55 minutes')
+    WHERE last_trigger IN ('schedule','worker') AND automatic_heartbeat > now() - interval '55 minutes')
     THEN RETURN NULL; END IF;
   IF config.repository !~ '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' THEN
     RAISE EXCEPTION 'Invalid scheduler repository';

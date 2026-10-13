@@ -1,3 +1,4 @@
+import { photoPaths } from "./article-format";
 import { repositoryPath,repositoryText } from "./repository-files";
 import { hostedRuntime } from './runtime';
 import { assertPublicWebsiteNetwork } from "./public-network";
@@ -49,9 +50,12 @@ export async function ensureProjectSource() {
 export async function validateAgainstRepo(article: Article, repo = getSite().repoPath) {
   if((getSite().managed||hostedRuntime())&&repo===getSite().repoPath)await ensureProjectSource();
   inputSchema.parse(article);
-  const imageId=mediaId(article.coverImage);
-  if(imageId && databaseConfigured()) { if(!await readMedia(imageId)) throw new Error("Photo not found in this project."); }
-  else await access(await repositoryPath(repo, `public${article.coverImage}`));
+  for(const image of photoPaths(article)) {
+    if(!/^\/images\/[a-zA-Z0-9_-]+\.webp$/.test(image))throw new Error("Article photos must be local WebP files.");
+    const imageId=mediaId(image);
+    if(imageId && databaseConfigured()) { if(!await readMedia(imageId)) throw new Error("Photo not found in this project."); }
+    else await access(await repositoryPath(repo, `public${image}`));
+  }
   const directory = await repositoryPath(repo, "content/blog");
   for (const name of await readdir(directory)) {
     if (!name.endsWith(".md")) continue;
@@ -74,20 +78,21 @@ export async function commitArticle(article: Article, target = defaultTarget()):
     const saved = await readFile(file, "utf8"); exists = true;
     if (saved !== source) throw new Error("The article file already exists with different content. Automatic overwriting is not allowed.");
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  const imageId=mediaId(article.coverImage);
-  const photo=imageId ? await readMedia(imageId) : undefined;
-  const photoFilename=photo ? `public${article.coverImage}` : undefined;
-  if(imageId&&!photo)throw new Error('The article photo is missing.');
-  if(photo&&photoFilename){
+  const photoFilenames:string[]=[];
+  for(const image of photoPaths(article)) {
+    const imageId=mediaId(image);const photo=imageId?await readMedia(imageId):undefined;
+    if(imageId&&!photo)throw new Error('An article photo is missing.');
+    if(!photo)continue;
+    const photoFilename=`public${image}`;photoFilenames.push(photoFilename);
     const photoPath=await repositoryPath(repo,photoFilename);await mkdir(path.dirname(photoPath),{recursive:true});
     try { const saved=await readFile(photoPath);if(!saved.equals(photo.bytes))throw new Error('The existing photo differs from the saved version.'); }
     catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;await writeFile(photoPath,photo.bytes,{flag:'wx'});}
   }
   // Only this publication's file may be pending; recover a crash after writing it.
   const pending = await runGit(["status", "--porcelain", "--untracked-files=all"]);
-  if (pending.split("\n").filter(Boolean).some(line => line.slice(3) !== filename && line.slice(3) !== photoFilename)) throw new Error("The publishing checkout contains unrelated changes.");
+  if (pending.split("\n").filter(Boolean).some(line => line.slice(3) !== filename && !photoFilenames.includes(line.slice(3)))) throw new Error("The publishing checkout contains unrelated changes.");
   if (!exists) await writeFile(file, source, { flag: "wx" });
-  await runGit(["add", "--", filename, ...(photoFilename?[photoFilename]:[])]);
+  await runGit(["add", "--", filename, ...photoFilenames]);
   if (await runGit(["diff", "--cached", "--name-only"])) {
     await runGit(["commit", "-m", `Publish article: ${article.slug}`, "-m", `Publication-ID: ${article.id}`]);
   }
@@ -115,11 +120,16 @@ export async function verifyPublication(article: Article): Promise<{ verified: b
   if (!matchesManifest(manifest, article)) return { verified: false, message: "The website is running a different version. Waiting for the expected commit to deploy." };
   const response = await fetch(`${getSite().url}/blog/${article.slug}?check=${Date.now()}`, { ...options, signal: AbortSignal.timeout(15000) });
   const html = await response.text();
-  const image = await fetch(`${getSite().url}${article.coverImage}`, { ...options, method: "HEAD", signal: AbortSignal.timeout(15000) });
+  let imagesVerified=true;
+  for(const path of photoPaths(article)){
+    if(!/^\/images\/[a-zA-Z0-9_-]+\.webp$/.test(path)){imagesVerified=false;break;}
+    const image=await fetch(`${getSite().url}${path}`,{...options,method:"HEAD",signal:AbortSignal.timeout(15000)});
+    if(!image.ok||!image.headers.get("content-type")?.startsWith("image/"))imagesVerified=false;
+  }
   const verified = response.ok && html.includes(`data-publication-hash="${publicationHash(article)}"`) &&
     html.includes(`<h1>${escapeHtml(article.title)}</h1>`) &&
     html.includes(`name="description" content="${escapeHtml(article.description)}"`) &&
     html.includes(`rel="canonical" href="${getSite().url}/blog/${article.slug}"`) &&
-    image.ok && Boolean(image.headers.get("content-type")?.startsWith("image/"));
+    imagesVerified;
   return { verified, deployId: manifest.deployId, message: verified ? "The article, cover image and metadata have been verified on the website." : "The deployment was found, but the page, cover image or metadata has not passed verification yet." };
 }

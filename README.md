@@ -1,171 +1,103 @@
 # Inspirovate Admin
 
-Cloud migration is in progress. See [DEPLOYMENT.md](DEPLOYMENT.md) for the password-protected server runtime and remaining activation steps. Hosted access is blocked until credentials are configured. The scheduled GitHub job stays disabled until `BLOG_SCHEDULER_ENABLED=true` is set in repository Actions variables; manual dispatch still runs real work.
+An English-language, multi-project blog admin built with Next.js, React-admin and a Node.js API. Each client website keeps its own GitHub repository and Netlify deployment. Supabase stores private project data. The admin and an always-on publishing worker run on Railway; GitHub Actions (optionally triggered by Supabase Cron) remains a backup scheduler. Production automation does not depend on a Mac.
 
-An English-language content admin built with Next.js and React-admin for the Petal & Stem website. This repository contains the admin interface, its API, database access and publishing scheduler in separate files. The public Flowers website remains in its own repository and runs independently.
+## Documentation
 
-## Local development and testing
+- [Connect a client website](public/docs/project-setup.md): website build, GitHub, Netlify, forms, import and first publication.
+- [Copyable website-building prompt](public/docs/website-prompt.md): a complete brief with the compatible blog and form contracts.
+- [Developer publishing contract](public/docs/publication-contract.md): Markdown schema, hash, manifest and acceptance checks.
+- [Admin hosting and scheduler deployment](DEPLOYMENT.md): Railway, credentials and automatic-worker activation.
 
-Use Node.js 24 (or 22.14+), Git and a sibling checkout of `List-In-Hive/flowers_test`. Local publishing uses your existing Git SSH access and configured commit identity.
+The first three documents are also available in the shared **Documentation** sidebar section (`/#/documentation`), with Markdown downloads and **Copy website prompt**. The UI reads these exact files from `public/docs`; edit them here to update both versions. They are intentionally public, generic documentation: never add private notes or credentials to them. A code change must be deployed before hosted documentation changes.
+
+## Local development
+
+Use Node.js 24 from `.nvmrc` and Git:
 
 ```bash
 nvm use
 npm ci
 cp .env.example .env.local
-# Fill in the connection settings without committing them.
+# Fill in server-side settings locally; never commit credentials.
 npm run dev
 ```
 
-Open http://127.0.0.1:3100. For a local production build, run `npm run build`, then `npm start`. Stop the previous server before starting another instance on the same port.
-
-The local interface has no login, as requested for the pilot. It binds to `127.0.0.1`, and API routes validate Host, Origin and request format. Hosted mode requires password authentication; use the documented server entry point for hosting.
-
-The Next.js server provides both the interface and API during local testing. No scheduler needs to run on the Mac. Production scheduling is a separate server process; its workflow is prepared but must be configured and deployed before it can run.
-
-## Connections
-
-Set these server-only variables in `.env.local`:
-
-- `DATABASE_URL`: Supabase → Connect → Session pooler, port 5432. Replace the password placeholder and URL-encode any special characters in the password.
-- `OPENAI_API_KEY`: your OpenAI API key.
-- `OPENAI_MODEL`: optional; defaults to `gpt-5.6-terra`.
-- `FLOWERS_REPO`: optional path to the client website checkout; defaults to `../flowers`.
-
-Restart the admin after changing environment variables. Open **Project → Settings** and select **Check connections**. The key check verifies access to the configured model without generating content.
-
-Supabase connections verify both the TLS certificate and hostname. The official public Supabase CA is bundled in `certs/` and used only for Supabase database hosts. Transaction pooling on port 6543 is not supported because publishing uses session advisory locks.
-
-Credentials, `.data`, dependency directories and build output are excluded from Git. The browser never receives database credentials or the OpenAI key.
-
-## Database and migration
-
-The first database connection creates the private `inspirovate` schema and imports `.data/articles.json`, preserving IDs, revisions, approvals and Git/Netlify metadata. The original file remains in place, and `.data/articles.before-supabase.json` is saved before import. Importing again does not overwrite existing database records.
-
-Run `npm run db:migrate` to perform the migration explicitly. Connect from the local admin first so existing articles are imported before starting the cloud scheduler. A cloud run without the local file does not mark the Mac import as complete.
-
-Before DATABASE_URL is configured, manual article editing uses the existing local JSON store. Once DATABASE_URL is configured, a connection error does not silently switch storage back to local files. AI and calendar features require Supabase.
-
-Tables use row-level security, with no public policies or schema grants. The backend connects using the PostgreSQL server role. Do not expose the private schema through Supabase Data API.
-
-## Write and publish manually
-
-1. Open **Articles → New article** and enter the title, slug, description, date with time zone, Markdown body and an initial cover path.
-2. Select **Save draft**, run **Review & improve with AI**, and generate the article photo. Raw HTML is not rendered.
-3. Select **Publish now** and confirm the specific article. The backend sets the publication time to now, checks the latest saved text and photo, and creates one commit containing the Markdown article and WebP photo in an isolated publishing checkout. It pushes to the Flowers `main` branch; Netlify builds through the existing Git integration. A linked calendar slot records this early publication so it is not published again later.
-4. The preview checks every 20 seconds while open. **Published** requires a matching production manifest, exact commit, article content hash, page title, description, canonical URL and accessible cover image.
-
-`npm run seed` creates one example draft only when storage is empty. It neither approves nor publishes it. **Publish now** replaces a future article date with the current time; use the Calendar to keep a future publication time.
-
-## AI drafts and revisions
-
-**Create with AI** runs writing (up to 5,000 output tokens), a separate editorial pass (up to 7,000), and one image generation. Text requests use Structured Outputs and `store: false`. There are no automatic retries of ambiguous paid requests. Configure the business profile in **Project → Settings** and verified sources in **Knowledge**.
-
-Set up business facts, audience, writing style, blog goals, content areas and editorial rules once in project Settings. These settings do not expire at the end of the year. They apply to both scheduled generation and Create next article; update them when the business changes. Legacy profiles receive generic strategy defaults without overwriting their saved facts.
-
-Generation sends the business profile and ongoing strategy, enabled knowledge entries, recent article metadata and related full texts to OpenAI. An AI revision also sends the current article and editing instructions. The history records request results and known token usage. After a timeout, the charge may be unknown: check OpenAI Usage before starting a new paid request.
-
-Generated output is saved before the draft is created. Retrying a saved result does not generate content again. A request with an uncertain outcome requires a deliberate new request. AI revisions preserve the slug and invalidate manual approval.
-
-Each article gets one generated OpenAI photo, optimized to WebP and reused as both cover and article image. Draft image bytes are stored in Supabase; publication adds the image to the client website repository. Articles remain editable until sent to GitHub.
-
-## Calendar and automatic publication
-
-Settings are stored per project. This pilot has one connected project, Flowers. The default is **4 articles per month**, adjustable from 1 to 28.
-
-Each month is divided into N parts using day `1 + floor(index × daysInMonth / N)`, at **8:00 AM America/Los_Angeles**. For four September articles, the dates are September 1, 8, 16 and 23. Pacific daylight saving time is handled automatically. The calendar displays the current and following month and automatically extends as time advances. It needs no monthly or annual reset. At four articles per month, a full year has 48 planned articles.
-
-- Past dates are skipped when creating a new calendar.
-- Changing the monthly count recalculates future slots that have not started or been manually adjusted. Prepared articles and custom dates remain, so a transition month can differ from the new count.
-- Each slot has an editable date and time. Individual topic selection is not required. Nonexistent or ambiguous times during clock changes are rejected.
-- **Create now** generates a draft early and keeps the assigned publication date.
-- Otherwise, the server generates content on its first check at or after the 24-hour lead time. AI chooses the next useful reader question from the saved project strategy, verified knowledge and article history. Evergreen content is the default; the date does not force a seasonal article.
-- The admin can revise the draft manually or through AI before it is sent to GitHub.
-- At publication time, the scheduler uses the latest saved version and records its approval automatically. **Reading the article, leaving it unreviewed or resetting manual approval does not cancel scheduled publication.** Unsaved browser edits are not published.
-- By default, late generation preserves a full 24-hour review period and postpones publication. The alternative setting keeps the original date and publishes immediately when overdue.
-- Errors appear in the calendar. Git retries do not force-push, overwrite another article or create duplicate published content.
-
-## Server scheduler: independent of the Mac
-
-The prepared `.github/workflows/scheduler.yml` workflow runs `npm run scheduler:once` once an hour (minute 04 UTC, avoiding the top-of-hour peak) and supports **Actions → Blog scheduler → Run workflow**. Confirm automatic triggering in Actions with the `event:schedule` filter; a successful manual `workflow_dispatch` run does not verify the cron trigger. Check both the job result and the article status in the admin calendar.
-
-The scheduler job uses the `WEBSITES` GitHub environment. Add these Actions secrets under **Settings → Environments → WEBSITES → Environment secrets** (repository secrets also work):
-
-- `DATABASE_URL`: the same Supabase Session pooler connection.
-- `OPENAI_API_KEY`: the OpenAI key.
-- `PROJECTS_GITHUB_TOKEN`: a fine-grained token with Contents read/write access to the selected client website repositories. Organization approval may be required. GitHub reserves secret names starting with `GITHUB_`; the workflow maps this secret to the application's `GITHUB_PROJECTS_TOKEN` environment variable. Keep `GITHUB_PROJECTS_TOKEN` as the variable name on Render and in local settings. The legacy `FLOWERS_GITHUB_TOKEN` is still supported for Flowers only.
-
-Set the Actions repository variable `BLOG_SCHEDULER_ENABLED` to `true` to enable scheduled processing. A manual **Run workflow** processes due articles even when this variable is absent or false.
-
-An optional Actions variable, `OPENAI_MODEL`, selects the model. Git receives the token through environment-based configuration; it is not stored in repository URLs or Git config files. Local publishing continues to use SSH when no token is configured.
-
-The workflow must be on the default branch, with GitHub Actions enabled and sufficient execution minutes. Hourly checks consume Actions minutes separately from OpenAI usage. Merely having the workflow in the source code does not activate it: verify a successful Actions run and the last scheduler check shown in the Calendar.
-
-The Calendar tracks automatic checks separately from manual/local checks. A GitHub `schedule` event or the explicitly configured Supabase `repository_dispatch` refreshes the automatic heartbeat; a successful manual run cannot make the automatic indicator green. Checks before this tracking was introduced have an unknown trigger and do not count as proof of automatic scheduling. A heartbeat confirms the worker started processing that project, not that every article succeeded; article failures remain visible on their calendar cards.
-
-GitHub can delay scheduled runs, and Netlify needs time to build. 8:00 AM is the target submission time, not a guarantee that the page will be live at that exact minute. For more precise execution, the same `scheduler:once` command can run from system cron on a persistent server with Node.js 24, Git, a Flowers checkout and the required environment variables.
-
-`npm run scheduler` is a development-only local loop. It is not needed for cloud scheduling and is not started by `dev` or `start`. PostgreSQL locks serialize competing workers. The scheduler does not expose the admin interface publicly.
-
-## Recovery and storage
-
-- `.data/publisher` is the isolated publishing clone. Publishing does not modify the main Flowers working directory.
-- `.data/articles.json` is the legacy local store. Supabase becomes the active store after configuration. Committing source code is not a backup of database content.
-- Stop the local admin before copying `.data` for backup. Use your database backup process for Supabase records.
-- After a local crash, `.data/operation.lock` can remain. Verify that all admin processes have stopped before removing this file. Active locks are never stolen based on a timer.
-- A retry reuses the intended article content. If an ephemeral runner loses an unpushed local commit, it can recreate that commit; an existing published file with different content is rejected.
-- After 15 minutes without a matching deployment, check the Netlify build logs and select **Verify publication** again. Closing the browser stops its polling but does not cancel an already submitted Netlify build.
-
-The public website generates `/publication-manifest.json` during its build and embeds the article hash in its HTML. The manifest contains only public articles and public deployment identifiers. Exact commit matching is deliberate: if a newer deployment overtakes an article, manual verification may be needed.
-
-## Current scope
-
-One configured client website, project-scoped English interface, knowledge sources, a published blog library, version snapshots, AI editorial review and one generated WebP per article. Published content is locked in the admin and must currently be edited through Git. Customer accounts, enquiry synchronization and photo uploads are not included.
-
-## Validation
+Open http://127.0.0.1:3100. For a production preview, run `npm run build`, then `npm start`. Stop the old instance before starting another on this port. Local mode binds to loopback without login; hosted mode requires the password-protected server entry point described in DEPLOYMENT.md. APIs validate the host and mutation origin.
 
 ```bash
-npm test
 npm run lint
 npm run typecheck
+npm test
 npm run build
 ```
 
-Tests cover PostgreSQL DDL through PGlite, unique slugs, TLS/session pooling, approval and revision checks, local API boundaries, paid-request deduplication, recovery after storage failures, Pacific DST, review windows and scheduled publishing of the latest saved version. Publishing tests use a real temporary Git remote. AI tests use a substitute provider and incur no API charges. Live connections and deployed scheduler runs are checked separately.
+These checks do not generate paid articles. Manual AI actions and scheduler runs can generate paid content or publish to real websites. Local and hosted admin instances using the same DATABASE_URL share real data; local testing is not an isolated database automatically.
 
-## Project workspaces
+## Server connections
 
-The home page is a project directory. Open **Flowers** to manage its Overview, Articles, Calendar, Create with AI and Settings. There are no global article, calendar, generation or settings pages.
+Configure `.env.local` for local work, and hosting/Actions secrets separately for cloud execution:
 
-Each workspace has its own URLs (`/#/projects/flowers/calendar`), resource cache, business profile, schedule, AI history, article storage and publication destination. API operations require `/api/projects/<project-id>/…`; unknown projects are rejected. Legacy global API routes are removed. Migration `002-project-isolation.sql` assigns existing records to Flowers without changing their content or publication metadata, and allows the same slug in different projects.
+- `DATABASE_URL`: Supabase **Connect → Session pooler**, port 5432; substitute the password and URL-encode special characters. Transaction pooling on port 6543 is unsupported because the app uses session advisory locks.
+- `OPENAI_API_KEY`: server-only API key.
+- `GITHUB_PROJECTS_TOKEN`: fine-grained token with Contents read/write on client repositories, for import and cloud publication. On GitHub Actions the secret is named **PROJECTS_GITHUB_TOKEN**, which the workflow maps to this application variable.
+- `OPENAI_MODEL` and `OPENAI_IMAGE_MODEL`: optional model overrides; current defaults are in `.env.example` and the workflow.
+- `ANTHROPIC_API_KEY`: optional server-only Claude key; `ANTHROPIC_MODEL` overrides the default `claude-opus-5-5`. Without it, OpenAI performs every step as before.
+- `FLOWERS_REPO`: optional local Flowers checkout path; default `../flowers`. Hosted mode obtains project source from GitHub.
 
-Projects are stored in Supabase. The bundled Flowers definition is seeded once; removing it is not undone by a restart. Use **Projects → Add project** and paste the main HTTPS GitHub repository link. The server reads selected website files without executing repository code, analyzes the supported blog structure, imports existing blog material and source notes, and asks OpenAI to suggest the business profile and ongoing content strategy. Selected source excerpts are sent to OpenAI for this paid analysis; credential files are excluded and common credential patterns are redacted. Imported knowledge notes start disabled. Review inferred facts before enabling them.
+Restart after changing environment settings. **Project → Settings → Check connections** verifies database and configured model access without generating content. Supabase TLS certificate and hostname verification remain enabled; the public CA is bundled in `certs/`.
 
-New projects start with four articles per month and automatic blogging off. Review **Settings**, supply the live HTTPS website address if the repository does not explicitly identify it, and select **Save and confirm project setup**. Unsupported repositories remain blocked from activation with a list of missing integration elements. After the website is adapted, use **Recheck repository compatibility**; this is a read-only GitHub check and does not rerun paid AI analysis. Compatibility checks inspect structure; they do not execute the client build or prove every runtime behavior. Each website must support the existing Markdown format, WebP covers and publication verification manifest.
+## Data and project isolation
 
-The **Automatic blog creation and publication** switch pauses both scheduled generation and scheduled publication; manual actions remain available. **Remove project** archives the project, pauses automation, and retains its data. It never deletes the GitHub repository or live site. **Show removed projects → Restore project** restores access with automation still off. A publication already pushed to GitHub may still complete. Archived projects are excluded from server scheduling and project APIs; mutations recheck archive status under the scheduler lock.
+The private `inspirovate` schema stores project catalog/profile data, articles and revisions, AI requests, enabled knowledge, synchronized article history, photo bytes, rules drafts, schedules and worker checks. These tables have no public Data API policies or grants; server-side PostgreSQL access is required. Netlify form submissions stay in Netlify, not this database.
 
-A repeated repository link returns the existing project, including removed projects, without another paid setup request. An interrupted AI analysis is not retried automatically; its basic project profile remains available for manual completion. No account authorization is implemented in this local pilot. Private repository analysis requires `GITHUB_PROJECTS_TOKEN` on the server; public repository analysis can use unauthenticated GitHub API access within its rate limits. The same fine-grained token can publish to selected repositories with Contents read/write. Tokens stay in server environment variables. Project data contains no credentials.
+`npm run db:migrate` creates/updates storage and imports the legacy local article file without overwriting existing records. Connect locally before starting the cloud worker if old Mac-only drafts need migration. Without DATABASE_URL, basic manual editing can use the legacy JSON store; AI and calendar features require Supabase. A configured but failing database does not silently fall back to local files.
 
-The hosted workflow loads active projects from Supabase and prepares isolated source checkouts as needed, so adding a project does not require editing the workflow or a checkout on the Mac. The workflow itself must still be deployed and configured. Legacy `<PROJECT_ID>_REPO` and `<PROJECT_ID>_GITHUB_TOKEN` overrides remain supported.
+Different projects can perform operations concurrently. The same project is serialized to protect revisions, topic history and publication. Local JSON storage retains a file-wide lock. Updated project locks coordinate with older global-lock workers, so deploy the admin and worker together for full cross-project concurrency. The scheduler itself currently loops through projects sequentially.
 
-This local version does not implement user authorization or tenant-level access control. Project scoping separates operations and data within the admin. The server scheduler iterates configured projects; it is not started automatically on the Mac.
+Removing a project archives it and pauses automation. Its data can be restored; this does not delete the client repository or website. Restoring leaves automation off. A push already sent can still finish deploying.
 
-## Knowledge, editorial review and article history
+## Business rules and AI preparation
 
-**Knowledge** stores project facts and source URLs. Importing the configured website reads only its root and registered project pages, without following redirects. Imported or changed pages start disabled until reviewed. Only enabled entries reach the AI. This is reference retrieval, not independent internet fact-checking.
+**Blog rules & settings** brings together Rules & format, Knowledge and Blog library. Set verified business facts, audience, tone, long-term goals, content areas and restrictions there. **Save draft settings** saves proposed rules; **Apply all rules** activates them for new generation. Project Settings holds the repository, live URL and connection checks.
 
-**Blog library** imports full published Markdown articles from the configured website checkout. Generation refreshes that library and combines it with managed drafts. Context selection includes up to eight related article texts (65,000 characters total), up to 200 recent article summaries, and up to 45,000 characters of enabled knowledge. Very long texts can be truncated. No embeddings or web research are used yet. Local imports reflect the local checkout; hosted runs fetch the repository using GitHub Actions.
+New article defaults are 2 photos, 3 external links and 3 internal links. Counts are stored in each article's format snapshot, so later rule changes do not retrofit existing drafts. The pipeline checks counts and allowed destinations and stops when requirements cannot be met safely. The current text-length rule is 450–650 visible words, including headings and link labels.
 
-The editorial pass checks facts against supplied sources, repetition, clarity, brand voice and links. Improvements save a new article version; the report lists changes and remaining issues. Publication requires a current successful review without blockers and a generated photo. Human approval is still automatic for scheduled articles. Technical failures or unresolved editorial blockers pause publication and appear in the article/calendar. AI review reduces errors but cannot guarantee factual accuracy.
+The writer receives the project profile, enabled knowledge, article history, selected related text and the requested format. External-source research uses web search when required. Imported knowledge starts disabled until reviewed. Blog library supports topic diversity and existing-article context; historical links are not automatically trusted as valid current destinations.
 
-Migration `003-content-workflow.sql` adds database-triggered snapshots, seeding a baseline for existing articles. All subsequent payload changes are saved. **Restore as new draft version** preserves later snapshots, uses optimistic concurrency and revokes approval. Earlier manual changes made before this migration cannot be reconstructed. Published articles cannot be restored through this UI.
+With both `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, each article goes through two models. OpenAI prepares an SEO brief with web research (reader question, search intent, main search phrase, outline and source-backed facts); Claude writes the article from that brief; OpenAI audits the draft as an independent SEO editor; Claude revises it against the audit. Only pages actually retrieved during research may be cited. Images always use OpenAI. When one provider clearly refuses service (bad key, quota, outage), the other performs that step; timeouts are ambiguous and are not handed over automatically. Without a Claude key the previous OpenAI-only flow runs unchanged.
 
-## One photo per article
+Generation uses structured text output (up to 7,000 output tokens), a separate editorial pass and the configured number of images. AI revisions also receive the saved article and editing instruction. Requests use `store: false`; known usage and results are recorded. Ambiguous paid requests are not automatically retried. Check provider usage before deliberately starting a replacement request after a timeout.
 
-`OPENAI_IMAGE_MODEL` defaults to `gpt-image-2.5-sunburst`. Each new article requests one landscape image at 1536×1024, high quality. Sharp converts it to WebP, strips metadata and tries quality 84/80/76 with widths 1536/1280/1024, targeting 350 KiB with a hard 512 KiB ceiling. No upscaling is performed. The photo is an illustrative AI image, not documentation of actual products or premises.
+Each generated image is requested at 1536×1024 and optimized to WebP (up to 1536 px wide, target 350 KiB, hard limit 512 KiB). Images are saved individually in Supabase so an interrupted preparation can retain completed work. The cover is reused on the listing and article; additional photos appear in the body. Publication commits all required image assets to the client repository. Text edits require renewed editorial checking before publication.
 
-Draft photo bytes and generation metadata live in Supabase, not on the Mac. Publication adds `public/images/blog-<sha256>.webp` and the article Markdown file in the same Git commit. The `coverImage` path is reused by the blog card and the image on the article page. A new photo request is explicitly paid; old bytes remain available for restoring versions. Image prompts, model and reported usage are retained in the project's AI task records. Failed or uncertain requests are not retried automatically.
+## Manual and automatic publication
 
-New AI articles keep the descriptive slug supplied by the model. Random ID suffixes are no longer appended. Only an actual collision adds the first available numeric suffix (`-2`, `-3`, …); the admin can edit draft URLs. Published URL changes require a separate redirect plan. The article screen includes a search-result preview and title/description/word counts. These checks do not guarantee search rankings.
+Create a draft through **Articles → New article** or **Create with AI**. Review it, resolve preparation issues and use **Publish now** to send the latest saved version immediately. This updates an associated calendar slot to prevent a later duplicate. Saved future publication dates are handled through Calendar, not by leaving a future date in a manual immediate-publication request.
 
-**Publish now** is available directly on a draft. It checks the current revision, sets the publication date to now, runs the normal editorial/photo checks and publishes without a separate approval click. A linked calendar entry is updated after a commit exists, preventing a second scheduled publication. A failed check keeps the draft and its previous calendar date available for correction; a failed push retains the commit for safe retry.
+The publisher validates the article, writes Markdown and WebP assets into an isolated checkout, commits and pushes the project's configured branch. Netlify builds through its Git integration. Published source versions are locked in this admin; edit already-published content through Git for now.
+
+**Publishing** means sent but not fully verified. **Published** requires a matching production manifest and commit, content hash, plain H1, description, canonical URL and accessible article photos. Preview pages recheck every 20 seconds while open. The current exact-commit requirement can also fail after a newer unrelated deployment; inspect the expected commit and build before retrying. See the publishing contract for details.
+
+## Calendar
+
+Each project publishes in monthly **cycles** that start on its own day (1–28, default: the day the project was added; older projects keep day 1). Settings per project: articles per cycle (1–28), time zone, publication hour, how many days before the cycle topics are planned (default 10) and how long topics wait for review (default 3). Dates are spread evenly across the cycle; times are displayed and edited in the browser's local time zone.
+
+1. **Topic plan.** At the planning date one paid request proposes a distinct reader question, main search phrase, intent and angle for every open slot, avoiding past, planned and catalog topics. Slots are marked before the request, so an interrupted plan is never paid for twice; it shows as failed and AI then chooses the topic at writing time.
+2. **Review.** Approve all topics, edit any topic (a person's topic counts as approved) or request new proposals. Unreviewed topics are approved automatically when the review window ends.
+3. **Drafts.** All drafts of the cycle are then prepared (one per project per worker pass) and wait for edits. **Create now** prepares a slot early. The late policy keeps a 24-hour review window when a draft is prepared late, or publishes immediately if chosen.
+4. **Publication.** The latest saved version publishes automatically on its date. Editorial blockers or missing photos put the slot in **Needs your edit**; it is retried after the article is saved again or with **Try again**. Other failures retry after 1, 3, 6 and 12 hours, then stop and wait for a person.
+
+The always-on worker (`npm run worker`, see DEPLOYMENT.md) checks every minute and processes several projects in parallel, each under its own project lock. The hourly GitHub workflow remains a backup; overlapping runs skip a locked project. The optional Supabase backup skips dispatch while the worker or native GitHub cron has reported within 55 minutes. A heartbeat is evidence of a worker check, not proof that every article succeeded.
+
+## Repository map
+
+- `app/`: Next.js entry pages, protected API routes and login.
+- `components/`: project-scoped React-admin screens and the shared Documentation page.
+- `lib/`: database, generation, rules, scheduler, publishing and verification.
+- `scripts/`: migration, runtime and worker entry points.
+- `.github/workflows/`: hourly worker and optional Supabase backup setup.
+- `public/docs/`: shared operator guides and website prompt.
+- `tests/`: validation, workflow and isolation regression checks.
+
+Deployment files describe reproducible configuration; they do not certify the current live service or activate anything by being present. Review pending changes locally before pushing or deploying.

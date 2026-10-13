@@ -1,6 +1,7 @@
 import { assertLocal, failure, json } from "@/lib/http";
 import { databaseConfigured, query } from "@/lib/database";
 import { openAIConfigured, openAIModel, checkOpenAI } from "@/lib/openai";
+import { claudeConfigured, claudeModel, checkClaude } from "@/lib/claude";
 
 async function status(checkKey: boolean) {
   let database = 'local'; let databaseError: string | undefined;
@@ -13,7 +14,12 @@ async function status(checkKey: boolean) {
     try { await checkOpenAI(); openai = 'connected'; }
     catch (e) { openai = 'error'; openaiError = (e as Error).message; }
   }
-  return { database, databaseError, openai, openaiError, model: openAIModel() };
+  let claude = claudeConfigured() ? 'configured' : 'missing'; let claudeError: string | undefined;
+  if (checkKey && claudeConfigured()) {
+    try { await checkClaude(); claude = 'connected'; }
+    catch (e) { claude = 'error'; claudeError = (e as Error).message; }
+  }
+  return { database, databaseError, openai, openaiError, model: openAIModel(), claude, claudeError, claudeModel: claudeModel() };
 }
 export async function GET(request: Request) { try { assertLocal(request); return json({ data: await status(false) }); } catch (e) { return failure(e); } }
 export async function POST(request: Request) { try { assertLocal(request); return json({ data: await status(true) }); } catch (e) { return failure(e); } }

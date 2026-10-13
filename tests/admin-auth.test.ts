@@ -44,3 +44,17 @@ test('login attempt budget persists in Postgres and resets after the window',asy
     assert.equal(await allowLoginAttempt(),true);
   }finally{delete globals.adminPool;delete globals.adminDatabaseReady;if(old===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=old;await db.close();}
 });
+test('Railway generated domain is the hosted origin unless ADMIN_ORIGIN is set', async () => {
+  const { adminOrigin } = await import('../lib/runtime');
+  const previous = { origin: process.env.ADMIN_ORIGIN, domain: process.env.RAILWAY_PUBLIC_DOMAIN };
+  try {
+    delete process.env.ADMIN_ORIGIN; process.env.RAILWAY_PUBLIC_DOMAIN = 'admin-production.up.railway.app';
+    assert.equal(adminOrigin(), 'https://admin-production.up.railway.app');
+    process.env.ADMIN_ORIGIN = 'https://admin.example.org';
+    assert.equal(adminOrigin(), 'https://admin.example.org');
+  } finally {
+    for (const [key, value] of [['ADMIN_ORIGIN', previous.origin], ['RAILWAY_PUBLIC_DOMAIN', previous.domain]] as const) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});

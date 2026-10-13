@@ -1,7 +1,6 @@
 "use client";
 import { useEffect,useState } from 'react';
 import { Alert,Box,Button,Card,CardContent,Chip,Dialog,DialogTitle,DialogContent,DialogActions,FormControlLabel,Stack,Switch,TextField,Typography } from '@mui/material';
-import { Title } from 'react-admin';
 import { useProject } from './ProjectContext';
 import type { Knowledge as Entry } from '@/lib/content-store';
 export default function Knowledge(){
@@ -10,7 +9,7 @@ export default function Knowledge(){
  const reload=async()=>setEntries((await api('/knowledge')).data);
  useEffect(()=>{api('/knowledge').then(r=>setEntries(r.data)).catch(e=>setError(e.message));},[api]);
  const run=async(work:()=>Promise<void>)=>{setBusy(true);setError('');setMessage('');try{await work();await reload();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
- return <Box p={{xs:2,md:3}}><Title title={`${project.name} · Knowledge`} /><Typography variant="h4" mb={1}>Project knowledge</Typography>
+ return <Box p={{xs:2,md:3}}><Typography variant="h4" mb={1}>Project knowledge</Typography>
  <Typography color="text.secondary" mb={3}>Verified facts, services, FAQs, examples and writing constraints for {project.brand}. AI uses enabled entries along with the business profile and past articles.</Typography>
  <Stack direction="row" gap={2} mb={2}><Button variant="contained" onClick={()=>setEditing({title:'',content:'',url:'',enabled:true})}>Add knowledge</Button><Button disabled={busy} onClick={()=>run(async()=>{const {data}=await api('/knowledge/import','POST',{});setMessage(`${data.count} pages imported or updated. Review and enable them before AI uses them.${data.errors.length?` Could not import: ${data.errors.join(', ')}`:''}`);})}>{busy?'Importing…':'Import website pages'}</Button></Stack>
  <Alert severity="info" sx={{mb:2}}>Imported pages start disabled. Check their facts and enable the entries you want AI to use. Changed pages require review again after importing.</Alert>

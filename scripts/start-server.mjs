@@ -10,7 +10,10 @@ const missing = ['DATABASE_URL', 'OPENAI_API_KEY', 'GITHUB_PROJECTS_TOKEN', 'ADM
 if (missing.length) throw new Error(`Missing server configuration: ${missing.join(', ')}`);
 if (process.env.ADMIN_PASSWORD.length < 20 || process.env.ADMIN_SESSION_SECRET.length < 32) throw new Error('ADMIN_PASSWORD needs at least 20 characters and ADMIN_SESSION_SECRET needs at least 32.');
 const domain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
-const origin = new URL(process.env.ADMIN_ORIGIN || (domain ? `https://${domain}` : ''));
+const configuredOrigin = process.env.ADMIN_ORIGIN || (domain ? `https://${domain}` : '');
+if (!configuredOrigin) throw new Error('The admin has no public address. On Railway: Settings → Networking → Generate Domain, then redeploy; or set ADMIN_ORIGIN for a custom domain.');
+let origin;
+try { origin = new URL(configuredOrigin); } catch { throw new Error('ADMIN_ORIGIN must be a full HTTPS address such as https://admin.example.com.'); }
 if (origin.protocol !== 'https:' || origin.pathname !== '/' || origin.search || origin.hash || origin.username || origin.password) throw new Error('Configure an HTTPS ADMIN_ORIGIN, or generate a Railway public domain.');
 const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '--hostname', '0.0.0.0', '--port', port], {
   stdio: 'inherit', env: { ...process.env, ADMIN_HOSTED: 'true' },

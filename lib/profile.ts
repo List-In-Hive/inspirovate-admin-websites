@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { formatSchema } from "./article-format";
 export const profileSchema = z.object({
+  ...formatSchema.shape,
   name: z.string().trim().min(1).max(150),
   facts: z.string().trim().min(1).max(6000),
   audience: z.string().trim().min(1).max(1500),

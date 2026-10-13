@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { readFile, mkdir, copyFile } from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +10,8 @@ import { inputSchema } from "./article";
 import { dataDir } from "./config";
 import { projects } from "./projects";
 import { defaultProfile } from "./profile";
+import { defaultSchedule } from "./calendar";
+import { LockBusyError } from "./errors";
 
 const session = new AsyncLocalStorage<PoolClient>();
 const globals = globalThis as typeof globalThis & { adminPool?: Pool; adminDatabaseReady?: Promise<void> };
@@ -22,8 +25,10 @@ export function connectionOptions(raw: string) {
   for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat']) url.searchParams.delete(key);
   const supabaseHost = url.hostname.endsWith('.pooler.supabase.com') || (url.hostname.startsWith('db.') && url.hostname.endsWith('.supabase.co'));
   const ca = supabaseHost ? [...rootCertificates, readFileSync(path.join(process.cwd(), 'certs/supabase-prod-ca-2021.crt'), 'utf8')] : undefined;
-  return { connectionString: url.toString(), ssl: { rejectUnauthorized: true, ...(ca ? { ca } : {}) }, max: 3, connectionTimeoutMillis: 10000, idleTimeoutMillis: 20000, query_timeout: 15000, application_name: 'inspirovate-admin' };
+  return { connectionString: url.toString(), ssl: { rejectUnauthorized: true, ...(ca ? { ca } : {}) }, max: poolSize(), connectionTimeoutMillis: 10000, idleTimeoutMillis: 20000, query_timeout: 15000, application_name: 'inspirovate-admin' };
 }
+// Each project lock holds one session for the whole operation, so a parallel worker needs more connections.
+function poolSize() { const size = Number(process.env.DATABASE_POOL_MAX || 3); return Number.isInteger(size) && size >= 1 && size <= 50 ? size : 3; }
 function pool() {
   if (!databaseConfigured()) throw new Error("Add DATABASE_URL to .env.local and restart the admin.");
   if (!globals.adminPool) {
@@ -68,7 +73,7 @@ export async function initializeDatabase() {
         await client.query('INSERT INTO inspirovate.projects(id,repository,payload) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[project.id,project.repository,JSON.stringify(project)]);
         const profile = project.id === 'flowers' ? defaultProfile : { name: project.brand, facts: project.description, audience: 'Readers of this business website.', tone: 'Clear, useful English. Do not invent facts.' };
         await client.query('INSERT INTO inspirovate.profile(id,payload) VALUES ($1,$2) ON CONFLICT DO NOTHING',[project.id,JSON.stringify(profile)]);
-        await client.query('INSERT INTO inspirovate.schedules(id,payload) VALUES ($1,$2) ON CONFLICT DO NOTHING',[project.id,JSON.stringify({perMonth:4,enabled:false,latePolicy:'review24h'})]);
+        await client.query('INSERT INTO inspirovate.schedules(id,payload) VALUES ($1,$2) ON CONFLICT DO NOTHING',[project.id,JSON.stringify(defaultSchedule())]);
       }
       await client.query('COMMIT');
     } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
@@ -81,20 +86,40 @@ export async function query<T extends QueryResultRow = QueryResultRow>(sql: stri
   try { return await (session.getStore() || pool()).query<T>(sql, values); }
   catch { throw new Error("The database operation failed. Check the Supabase connection. Storage has not switched back to local files."); }
 }
-export async function withDatabaseLock<T>(work: () => Promise<T>): Promise<T> {
+// Shared legacy gate keeps new project locks compatible with older workers and
+// exclusive catalog maintenance. A hash collision only serializes two projects.
+export function projectLockKey(projectId:string){
+  return createHash('sha256').update(`inspirovate:project:${projectId}`).digest().readInt32BE(0);
+}
+export async function withDatabaseLock<T>(work: () => Promise<T>, projectId?:string): Promise<T> {
   await initializeDatabase();
-  if (session.getStore()) throw new Error("Another operation is already running.");
+  if (session.getStore()) throw new Error("Another operation is already running in this request.");
   let client: PoolClient;
   try { client = await pool().connect(); } catch { throw new Error(databaseMessage); }
-  let locked = false;
+  let gateLocked=false,projectLocked=false,broken=false;
+  const scoped=projectId!==undefined;
+  const projectKey=scoped?projectLockKey(projectId):undefined;
+  const acquire=async(sql:string,values?:unknown[])=>{
+    try{return Boolean((await client.query(sql,values)).rows[0].locked);}
+    catch(error){broken=true;throw error;}
+  };
   try {
-    locked = Boolean((await client.query('SELECT pg_try_advisory_lock(3100,2) AS locked')).rows[0].locked);
-    if (!locked) throw new Error("Another operation is already running. Wait for it to finish and try again.");
+    gateLocked=await acquire(scoped
+      ? 'SELECT pg_try_advisory_lock_shared(3100,2) AS locked'
+      : 'SELECT pg_try_advisory_lock(3100,2) AS locked');
+    if(!gateLocked)throw new LockBusyError('A catalog change or an older server operation is running. Wait for it to finish and try again.');
+    if(scoped){
+      projectLocked=await acquire('SELECT pg_try_advisory_lock(3101,$1::integer) AS locked',[projectKey]);
+      if(!projectLocked)throw new LockBusyError('Another operation is running for this project. You can work in a different project while it finishes.');
+    }
     return await session.run(client, work);
   } finally {
-    // Discard the session if unlocking fails: never return a locked connection to the pool.
-    let broken = false;
-    if (locked) try { await client.query('SELECT pg_advisory_unlock(3100,2)'); } catch { broken = true; }
+    // An interrupted acquisition can leave ownership uncertain: always discard on
+    // unlock failure, never return a potentially locked session to the pool.
+    try {
+      if(projectLocked)await client.query('SELECT pg_advisory_unlock(3101,$1::integer)',[projectKey]);
+      if(gateLocked)await client.query(scoped?'SELECT pg_advisory_unlock_shared(3100,2)':'SELECT pg_advisory_unlock(3100,2)');
+    }catch{broken=true;}
     client.release(broken);
   }
 }

@@ -80,3 +80,15 @@ test('existing project profiles gain reusable strategy defaults without losing f
  assert.equal(profileSchema.parse(profile).contentAreas,profile.contentAreas);
  assert.throws(()=>profileSchema.parse({...profile,goals:''}));
 });
+
+
+test('generation snapshots format and source evidence through saved-output recovery',async()=>{
+ const f=fixture();const generate=f.deps.generate;
+ const format={photoCount:2,externalLinkCount:1,internalLinkCount:0};
+ const sources=[{url:'https://source.test/article',title:'Source'}];
+ const deps={...f.deps,generate:async()=>{const result=await generate();return {...result,output:{...result.output,format,sources}};}};
+ const article=await generateDraft(f.input,deps);
+ assert.deepEqual(article.format,format);assert.deepEqual(article.sources,sources);
+ deps.profile=async()=>({...defaultProfile,photoCount:5});
+ assert.deepEqual((await generateDraft(f.input,deps)).format,format);assert.equal(f.calls(),1);
+});

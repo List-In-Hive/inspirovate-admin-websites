@@ -9,9 +9,11 @@ import * as rewrite from '@/lib/handlers/rewrite';
 import * as schedule from '@/lib/handlers/schedule';
 import * as slot from '@/lib/handlers/slot';
 import * as generateSlot from '@/lib/handlers/slot-generate';
+import * as slotAction from '@/lib/handlers/slot-action';
 import * as generations from '@/lib/handlers/generations';
 import * as integrations from '@/lib/handlers/integrations';
 import * as profile from '@/lib/handlers/profile';
+import * as blogSettings from '@/lib/handlers/blog-settings';
 export const runtime = 'nodejs';
 type Context = {params:Promise<{projectId:string;path:string[]}>};
 async function dispatch(request:Request,context:Context) {
@@ -30,12 +32,14 @@ async function dispatch(request:Request,context:Context) {
         if(section==='schedule') { if(method==='GET')return schedule.GET(request);if(method==='PUT')return schedule.PUT(request); }
         if(section==='generations') { if(method==='GET')return generations.GET(request);if(method==='POST')return generations.POST(request); }
         if(section==='integrations') { if(method==='GET')return integrations.GET(request);if(method==='POST')return integrations.POST(request); }
+        if(section==='blog-settings') { if(method==='GET')return blogSettings.GET();if(method==='PUT')return blogSettings.PUT(request); }
         if(section==='profile') { if(method==='GET')return profile.GET(request);if(method==='PUT')return profile.PUT(request); }
       }
       if(path.length===2 && section==='articles') { if(method==='GET')return article.GET(request,params);if(method==='PUT')return article.PUT(request,params); }
       if(path.length===2 && section==='schedule' && method==='PUT')return slot.PUT(request,params);
       if(path.length===3 && method==='POST') {
         if(section==='schedule' && operation==='generate')return generateSlot.POST(request,params);
+        if(section==='schedule' && ['approve','plan','retry'].includes(operation))return slotAction.POST(request,params);
         if(section==='articles' && operation==='rewrite')return rewrite.POST(request,params);
         if(section==='articles' && ['approve','publish','publish-now','verify'].includes(operation))return action.POST(request,params);
       }

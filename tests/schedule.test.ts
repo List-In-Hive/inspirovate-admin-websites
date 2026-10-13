@@ -35,7 +35,7 @@ function fixture(){
   return {slot,d,setNow:(n:number)=>{now=n;},edit:()=>{article!.title='Manual edit';article!.revision++;},counts:()=>({generated,published,verified}),article:()=>article};
 }
 test('scheduled article is generated 24h before and publishes latest edit without approval',async()=>{
-  const f=fixture();const config={perMonth:4,enabled:true,latePolicy:'review24h' as const};
+  const f=fixture();const config={enabled:true,latePolicy:'review24h' as const};
   await processSlot(f.slot,config,f.d);assert.equal(f.slot.status,'review');assert.equal(f.counts().published,0);
   f.edit();f.setNow(Date.parse(f.slot.publishAt));await processSlot(f.slot,config,f.d);
   assert.equal(f.slot.status,'published');assert.equal(f.article()?.title,'Manual edit');assert.equal(f.article()?.approvedHash,undefined);
@@ -43,15 +43,15 @@ test('scheduled article is generated 24h before and publishes latest edit withou
 });
 test('late generation preserves 24h review by default; immediate policy publishes when overdue',async()=>{
   const f=fixture();f.setNow(Date.parse(f.slot.publishAt)+3600000);
-  await processSlot(f.slot,{perMonth:4,enabled:true,latePolicy:'review24h'},f.d);
+  await processSlot(f.slot,{enabled:true,latePolicy:'review24h' as const},f.d);
   assert.equal(f.slot.publishAt,reviewDeadline('2026-10-01T15:00:00Z','2026-10-01T16:00:00Z'));assert.equal(f.counts().published,0);
   const g=fixture();g.setNow(Date.parse(g.slot.publishAt)+3600000);
-  await processSlot(g.slot,{perMonth:4,enabled:true,latePolicy:'immediate'},g.d);assert.equal(g.counts().published,1);
+  await processSlot(g.slot,{enabled:true,latePolicy:'immediate' as const},g.d);assert.equal(g.counts().published,1);
 });
 test('generation failure never publishes and backs off',async()=>{
   const f=fixture();let calls=0;f.d.generate=async()=>{calls++;throw new Error('No credits');};
-  await processSlot(f.slot,{perMonth:4,enabled:true,latePolicy:'immediate'},f.d);
-  await processSlot(f.slot,{perMonth:4,enabled:true,latePolicy:'immediate'},f.d);
+  await processSlot(f.slot,{enabled:true,latePolicy:'immediate' as const},f.d);
+  await processSlot(f.slot,{enabled:true,latePolicy:'immediate' as const},f.d);
   assert.equal(calls,1);assert.equal(f.slot.status,'error');assert.equal(f.counts().published,0);
 });
 

@@ -1,3 +1,4 @@
+import { saveProfileSql } from "./blog-settings";
 import { getSite } from "./config";
 import type { Article } from "./article";
 import { profileSchema, type Profile } from "./profile";
@@ -15,11 +16,11 @@ export async function writeDatabaseArticles(articles: Article[]) {
   if(result.rowCount !== articles.length) throw new Error("Article ID belongs to another project.");
 }
 export async function readProfile(): Promise<Profile> { return profileSchema.parse((await query("SELECT payload FROM inspirovate.profile WHERE id=$1",[getSite().id])).rows[0].payload); }
-export async function writeProfile(profile: z.input<typeof profileSchema>) { await query("UPDATE inspirovate.profile SET payload=$1 WHERE id=$2", [JSON.stringify(profileSchema.parse(profile)),getSite().id]); }
+export async function writeProfile(profile: z.input<typeof profileSchema>) { await query(saveProfileSql, [JSON.stringify(profileSchema.parse(profile)),getSite().id]); }
 export type Generation = {
   id: string; kind?: 'revision'; sourceRevision?: number; topic: string; coverImage: string; coverAlt: string; model: string;
   status: 'generating' | 'generated' | 'succeeded' | 'failed'; createdAt: string;
-  articleId?: string; output?: { title: string; slug: string; description: string; body: string };
+  articleId?: string; output?: { title: string; slug: string; description: string; body: string; format?: Article["format"]; sources?: Article["sources"] };
   responseId?: string; inputTokens?: number; outputTokens?: number; error?: string;
 };
 export async function readGeneration(id: string): Promise<Generation | undefined> { return (await query('SELECT payload FROM inspirovate.generations WHERE id=$1 AND site_id=$2',[id,getSite().id])).rows[0]?.payload; }

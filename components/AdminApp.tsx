@@ -1,8 +1,6 @@
 "use client";
 import Projects from "./Projects";
 import { ProjectCatalog,useCatalog } from "./ProjectCatalog";
-import Knowledge from "./Knowledge";
-import Library from "./Library";
 import ArticlePreparation from "./ArticlePreparation";
 import BlogThumbnail from "./BlogThumbnail";
 import { createContext, useContext, useEffect, useState } from "react";
@@ -15,16 +13,19 @@ import {
 import { Box, Button, Card, CardContent, Chip, Typography, Stack, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import Schedule from "./Schedule";
 import AIRewrite from "./AIRewrite";
-import { Route } from "react-router";
+import { Route, Navigate, useLocation } from "react-router";
 import { projectPath } from "@/lib/projects";
 import { ProjectFrame, useProject } from "./ProjectContext";
 import AIGenerator from "./AIGenerator";
+import BlogSettings from "./BlogSettings";
 import Integrations from "./Integrations";
+import SetupGuide from "./SetupGuide";
 import { browserTimeZone, localDateTime } from "@/lib/calendar";
 
 
 import ArticleIcon from "@mui/icons-material/Article";
 import LanguageIcon from "@mui/icons-material/Language";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
 import Markdown from "react-markdown";
 import dataProvider from "./dataProvider";
 import type { Article } from "@/lib/article";
@@ -50,8 +51,9 @@ function ProjectOverview() {
     <Alert severity="info" sx={{mt:3}}>Scheduled articles publish the latest saved version at their assigned time. Review drafts and adjust dates in this project’s calendar.</Alert>
   </Box>;
 }
-function ProjectMenu() { const projects=useCatalog().projects.filter(p=>!p.archivedAt);const hosted=useContext(HostedContext);const notify=useNotify();return <Menu><Menu.Item to="/projects" primaryText="Projects" leftIcon={<LanguageIcon />} />{projects.map(project=><Menu.Item key={project.id} to={projectPath(project.id)} primaryText={project.name} leftIcon={<ArticleIcon />} />)}{hosted&&<Button sx={{m:2}} onClick={async()=>{try{const response=await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw new Error('Sign-out failed. Please try again.');window.location.replace('/login');}catch(e){notify((e as Error).message,{type:'error'});}}}>Sign out</Button>}</Menu>; }
-function ProjectLayout(props:LayoutProps) { return <Layout {...props} menu={ProjectMenu} />; }
+function ProjectMenu() { const projects=useCatalog().projects.filter(p=>!p.archivedAt);const hosted=useContext(HostedContext);const notify=useNotify();return <Menu><Menu.Item to="/projects" primaryText="Projects" leftIcon={<LanguageIcon />} /><Menu.Item to="/documentation" primaryText="Documentation" leftIcon={<MenuBookIcon />} />{projects.map(project=><Menu.Item key={project.id} to={projectPath(project.id)} primaryText={project.name} leftIcon={<ArticleIcon />} />)}{hosted&&<Button sx={{m:2}} onClick={async()=>{try{const response=await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw new Error('Sign-out failed. Please try again.');window.location.replace('/login');}catch(e){notify((e as Error).message,{type:'error'});}}}>Sign out</Button>}</Menu>; }
+function ProjectLayout(props:LayoutProps) { return <Layout {...props} menu={ProjectMenu} sx={{minWidth:0, '& .RaLayout-appFrame, & .RaLayout-contentWithSidebar, & .RaLayout-content':{minWidth:0}}} />; }
+function LegacyGuideRedirect() { const {search}=useLocation();return <Navigate replace to={`/documentation${search}`} />; }
 function MissingPage() { return <Box p={4}><Typography variant="h5">Select a project</Typography><Button href="#/projects">All projects</Button></Box>; }
 function ArticleList() {
   return <List title="Articles" sort={{ field: "updatedAt", order: "DESC" }} filters={[<TextInput key="q" source="q" label="Search by title" alwaysOn />, <SelectInput key="status" source="status" label="Status" choices={statusChoices} />]} actions={<TopToolbar><CreateButton label="New article" /></TopToolbar>}>
@@ -129,7 +131,8 @@ function Preview() {
       <h1>{article.title}</h1><p>{article.description}</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="article-cover" src={article.coverImage.startsWith("/images/blog-") ? `/api${base}/media/${article.coverImage.slice(13,-5)}` : `${project.url}${article.coverImage}`} alt={article.coverAlt} />
-      <Markdown skipHtml components={{ a: ({ href, children }) => <a href={href?.startsWith("/") ? `${project.url}${href}` : href} target="_blank" rel="noreferrer">{children}</a> }}>{article.body}</Markdown>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <Markdown skipHtml components={{ img:({src,alt})=><img style={{maxWidth:'100%',height:'auto'}} src={typeof src==='string'&&/^\/images\/blog-[a-f0-9]{64}\.webp$/.test(src)?`/api${base}/media/${src.slice(13,-5)}`:undefined} alt={alt||''}/>, a: ({ href, children }) => <a href={href?.startsWith("/") ? `${project.url}${href}` : href} target="_blank" rel="noreferrer">{children}</a> }}>{article.body}</Markdown>
     </article></CardContent></Card>
     <Dialog open={confirm} onClose={() => setConfirm(false)}><DialogTitle>Publish this article now?</DialogTitle><DialogContent>The latest saved version of “{article.title}” will pass editorial and photo checks, then be sent to {project.url}. This publishes it now instead of waiting for its scheduled date. It will appear after a successful website build.</DialogContent><DialogActions><Button onClick={() => setConfirm(false)}>Cancel</Button><Button variant="contained" onClick={() => action(article.commit ? "publish" : "publish-now")}>Publish now</Button></DialogActions></Dialog>
   </Box>;
@@ -145,12 +148,15 @@ function CatalogAdmin() {
       edit={<ProjectFrame project={project}><ArticleEdit /></ProjectFrame>}
       show={<ProjectFrame project={project}><ArticleShow /></ProjectFrame>} recordRepresentation="title" />)}
     <CustomRoutes><Route path="/projects" element={<Projects />} />
+      <Route path="/documentation" element={<SetupGuide />} />
+      <Route path="/projects/:projectId/guide" element={<LegacyGuideRedirect />} />
       {projects.map(project=>[
         <Route key={`${project.id}-overview`} path={projectPath(project.id)} element={<ProjectFrame key={project.id} project={project}><ProjectOverview /></ProjectFrame>} />,
         <Route key={`${project.id}-calendar`} path={projectPath(project.id,'calendar')} element={<ProjectFrame key={project.id} project={project}><Schedule /></ProjectFrame>} />,
         <Route key={`${project.id}-generate`} path={projectPath(project.id,'generate')} element={<ProjectFrame key={project.id} project={project}><AIGenerator /></ProjectFrame>} />,
-        <Route key={`${project.id}-knowledge`} path={projectPath(project.id,'knowledge')} element={<ProjectFrame key={project.id} project={project}><Knowledge /></ProjectFrame>} />,
-        <Route key={`${project.id}-library`} path={projectPath(project.id,'library')} element={<ProjectFrame key={project.id} project={project}><Library /></ProjectFrame>} />,
+        <Route key={`${project.id}-knowledge`} path={projectPath(project.id,'knowledge')} element={<Navigate replace to={`${projectPath(project.id,'blog-settings')}?section=knowledge`} />} />,
+        <Route key={`${project.id}-library`} path={projectPath(project.id,'library')} element={<Navigate replace to={`${projectPath(project.id,'blog-settings')}?section=library`} />} />,
+        <Route key={`${project.id}-blog-settings`} path={projectPath(project.id,'blog-settings')} element={<ProjectFrame key={project.id} project={project}><BlogSettings /></ProjectFrame>} />,
         <Route key={`${project.id}-settings`} path={projectPath(project.id,'settings')} element={<ProjectFrame key={project.id} project={project}><Integrations /></ProjectFrame>} />,
       ])}
     </CustomRoutes>

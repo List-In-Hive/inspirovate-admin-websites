@@ -1,3 +1,4 @@
+process.env.DATABASE_POOL_MAX ||= '4';
 import { schedulerTick } from "../lib/scheduler";
 import { closeDatabase, connectionOptions, initializeDatabase } from "../lib/database";
 async function main() {
@@ -19,12 +20,13 @@ async function main() {
     console.log('Database connection and migrations succeeded.');
     stage = 'schedule processing';
     console.log('Processing project schedules...');
-    await schedulerTick();
+    // Backup runner: keep preparing due steps for up to 35 minutes of the 45-minute job limit.
+    await schedulerTick({ concurrency: Number(process.env.SCHEDULER_CONCURRENCY || 2), deadline: Date.now() + 35 * 60000 });
     console.log('Schedule check complete. Review the admin calendar for individual article results.');
   }
   catch {
     const help = stage === 'database URL' ? 'DATABASE_URL must be a PostgreSQL connection URL with a password. Use the Supabase Session pooler on port 5432.'
-      : stage === 'database connection' ? 'Check the DATABASE_URL Actions secret, database password, Supabase availability and network access. Render variables are not shared with Actions.'
+      : stage === 'database connection' ? 'Check the DATABASE_URL Actions secret, database password, Supabase availability and network access. Railway variables are not shared with Actions.'
       : 'Check project settings and the admin calendar. Another operation may hold the scheduler lock.';
     console.error(`Scheduler failed during ${stage}. ${help}`);
     process.exitCode=1;

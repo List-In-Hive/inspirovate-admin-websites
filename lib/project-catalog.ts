@@ -1,3 +1,4 @@
+import { defaultSchedule } from './calendar';
 import { databaseConfigured, query } from './database';
 import { projects, type Project, type ProjectSummary } from './projects';
 import { profileSchema } from './profile';
@@ -15,7 +16,7 @@ export function assertProjectReady(p:Project,allowLocalDrafts=false) {
  if(p.setup&&(!p.setup.compatible||!p.setup.reviewed))throw new Error('Review this project’s setup and resolve its compatibility issues before creating or publishing articles.');
  publicWebsite(p.url);
 }
-// All mutations are called while holding the same lock as the scheduler.
+// Updates hold the project lock used by its scheduler; insertion holds the exclusive catalog gate.
 export async function insertProject(p:Project,profile:unknown) {
  const parsed=profileSchema.parse(profile);
  await query(`WITH project AS (
@@ -23,7 +24,7 @@ export async function insertProject(p:Project,profile:unknown) {
  ), profile AS (
   INSERT INTO inspirovate.profile(id,payload) SELECT id,$4::jsonb FROM project RETURNING id
  ) INSERT INTO inspirovate.schedules(id,payload) SELECT id,$5::jsonb FROM profile`,
- [p.id,p.repository,JSON.stringify(p),JSON.stringify(parsed),JSON.stringify({perMonth:4,enabled:false,latePolicy:'review24h'})]);
+ [p.id,p.repository,JSON.stringify(p),JSON.stringify(parsed),JSON.stringify(defaultSchedule())]);
 }
 export async function updateProject(id:string,input:unknown) {
  const p=await projectById(id,true);if(!p)throw new Error('Project not found.');

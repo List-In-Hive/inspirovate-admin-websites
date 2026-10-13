@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { ArticleFormat, ArticleSource, ArticlePhoto } from "./article-format";
 
 export const inputSchema = z.object({
   title: z.string().trim().min(1, "Enter a title").max(180),
@@ -12,6 +13,7 @@ export const inputSchema = z.object({
 });
 export type ArticleInput = z.infer<typeof inputSchema>;
 export type Article = ArticleInput & {
+  format?: ArticleFormat; sources?: ArticleSource[]; photos?: ArticlePhoto[];
   schedule?: { publishAt: string; enabled: boolean };
   id: string; siteId: string; revision: number;
   status: "draft" | "approved" | "deploying" | "published" | "failed";

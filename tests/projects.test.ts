@@ -81,7 +81,7 @@ test('database reads and writes scope articles, AI history, profiles and calenda
       const year=(await calendar.slots()).filter(s=>s.month.startsWith('2030-'));
       assert.equal(year.length,48);assert.equal(new Set(year.map(s=>s.id)).size,48);
       assert.ok(year.every(s=>s.topic===''));
-      assert.ok((await calendar.slots()).some(s=>s.month==='2031-01'));
+      assert.ok((await calendar.slots()).some(s=>s.month==='2031-01-01'));
       assert.equal((await calendar.slots()).find(s=>s.id===slot.id)?.topic,slot.topic);
     });
   }finally{projects.pop();delete globals.adminPool;delete globals.adminDatabaseReady;delete process.env.DATABASE_URL;await db.close();}

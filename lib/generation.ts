@@ -38,7 +38,7 @@ export async function generateDraft(input: unknown, d: Dependencies) {
     await d.write(job);
     try {
       Object.assign(job, await d.generate(request.topic, profile, titles));
-      if (!job.output) throw new Error("OpenAI did not return any content.");
+      if (!job.output) throw new Error("The AI did not return any content.");
       job.status = 'generated'; await d.write(job);
     } catch (e) {
       job.status = 'failed'; job.error = (e as Error).message;
@@ -51,7 +51,7 @@ export async function generateDraft(input: unknown, d: Dependencies) {
     // Keep human-readable URLs. Only add a small sequential suffix when the exact slug is taken.
     const existing = await d.articles();
     articleInput.slug = availableSlug(articleInput.slug,d.slugs ? await d.slugs() : existing.map(a=>a.slug));
-    const article = (await d.articles()).find(a => a.id === job!.id) || await d.save(articleInput, job.id);
+    const article = (await d.articles()).find(a => a.id === job!.id) || await d.save({...articleInput,format:output.format,sources:output.sources}, job.id);
     job.articleId = article.id; job.status = 'succeeded'; delete job.error; await d.write(job);
     return article;
   } catch (e) {

@@ -6,7 +6,7 @@ import { api } from './dataProvider';
 import { projectPath, type Project } from '@/lib/projects';
 const Context=createContext<{project:Project;base:string;api:typeof api}|null>(null);
 export function useProject() { const value=useContext(Context);if(!value)throw new Error('Select a project first.');return value; }
-const sections=[['','Overview'],['articles','Articles'],['calendar','Calendar'],['generate','Create with AI'],['knowledge','Knowledge'],['library','Blog library'],['settings','Settings']];
+const sections=[['','Overview'],['articles','Articles'],['calendar','Calendar'],['generate','Create with AI'],['blog-settings','Blog rules & settings'],['settings','Settings']];
 export function ProjectFrame({project,children}:{project:Project;children:ReactNode}) {
   const location=useLocation();
   const base=projectPath(project.id);

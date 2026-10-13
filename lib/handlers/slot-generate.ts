@@ -11,8 +11,8 @@ export async function POST(request:Request,context:{params:Promise<{id:string}>}
   return json({data:await withLock(async()=>{
     const slot=(await slots()).find(s=>s.id===id);if(!slot)throw new Error('Scheduled entry not found.');
     if(slot.articleId)return {id:slot.articleId};
-    if(retry&&slot.status==='error'){slot.generationId=randomUUID();await writeSlot(slot);}
+    if(retry&&slot.status==='error'){slot.generationId=randomUUID();delete slot.attempts;await writeSlot(slot);}
     const article=await generateScheduledArticleUnlocked(slot);
-    slot.articleId=article.id;slot.generatedAt=new Date().toISOString();slot.status='review';delete slot.error;delete slot.retryAfter;await writeSlot(slot);return article;
+    slot.articleId=article.id;slot.generatedAt=new Date().toISOString();slot.status='review';if(slot.planStatus==='proposed')slot.planStatus='approved';delete slot.error;delete slot.retryAfter;await writeSlot(slot);return article;
   })});
 }catch(e){return failure(e);}}

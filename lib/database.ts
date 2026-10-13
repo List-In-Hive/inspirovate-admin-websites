@@ -54,6 +54,7 @@ export async function initializeDatabase() {
       await client.query(await readFile(path.join(process.cwd(), 'db/004-project-catalog.sql'), 'utf8'));
       await client.query(await readFile(path.join(process.cwd(), 'db/005-admin-login.sql'), 'utf8'));
       await client.query(await readFile(path.join(process.cwd(), 'db/006-worker-trigger.sql'), 'utf8'));
+      await client.query(await readFile(path.join(process.cwd(), 'db/007-history-content.sql'), 'utf8'));
       const imported = await client.query("SELECT id FROM inspirovate.migrations WHERE id = '001-local-import'");
       if (!imported.rowCount) {
         let local = '[]'; let hasLocal = false;

@@ -37,6 +37,7 @@ async function dispatch(request:Request,context:Context) {
       }
       if(path.length===2 && section==='articles') { if(method==='GET')return article.GET(request,params);if(method==='PUT')return article.PUT(request,params); }
       if(path.length===2 && section==='schedule' && method==='PUT')return slot.PUT(request,params);
+      if(path.length===2 && section==='blog-settings' && id==='visual-style' && method==='POST')return blogSettings.suggestStyle();
       if(path.length===3 && method==='POST') {
         if(section==='schedule' && operation==='generate')return generateSlot.POST(request,params);
         if(section==='schedule' && ['approve','plan','retry'].includes(operation))return slotAction.POST(request,params);

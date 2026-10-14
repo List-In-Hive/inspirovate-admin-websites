@@ -3,6 +3,14 @@ import { fromMarkdown } from 'mdast-util-from-markdown';
 import type { RootContent, Root } from 'mdast';
 export const formatSchema=z.object({photoCount:z.number().int().min(1).max(6).default(2),externalLinkCount:z.number().int().min(0).max(10).default(3),internalLinkCount:z.number().int().min(0).max(10).default(3)});
 export type ArticleFormat=z.infer<typeof formatSchema>;
+// How a project's images look. An empty style means realistic editorial photography.
+export const imageAspects=['16:9','3:2','4:3','1:1'] as const;
+export const visualSchema=z.object({imageStyle:z.string().trim().max(1500).default(''),imageAspect:z.enum(imageAspects).default('3:2')});
+export type VisualSettings=z.infer<typeof visualSchema>;
+export function nearestAspect(width:number,height:number){
+ const ratio=width/height;const value=(a:string)=>{const [w,h]=a.split(':').map(Number);return w/h;};
+ return [...imageAspects].sort((a,b)=>Math.abs(Math.log(value(a)/ratio))-Math.abs(Math.log(value(b)/ratio)))[0];
+}
 export type ArticleSource={url:string;title:string};
 export type ArticlePhoto={path:string;alt:string};
 export function markdownAssets(body:string){

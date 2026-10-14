@@ -54,6 +54,8 @@ In **Settings**, check the repository, branch and live website URL. **Recheck re
 
 In **Blog rules & settings → Rules & format**, review business facts, audience, tone, goals, content areas and restrictions. Defaults for new articles are **2 photos, 3 external links and 3 internal links**. Counts need enough useful, verifiable sources and real website pages; preparation can stop if it cannot meet the rules safely.
 
+Under **Image style**, describe how covers and article photos should look, and choose the image proportions the website uses for blog covers. Import fills both from the website's own blog images; **Detect from website images** repeats that with one small paid request. Leave the style empty for realistic editorial photos.
+
 **Save draft settings** keeps proposed changes for review. **Apply all rules** makes them active for new generation. Existing articles keep their saved format snapshot; changing settings does not retrofit older drafts or published articles.
 
 Under **Knowledge**, review and enable approved source notes. Imported notes start disabled and are not used until enabled. Under **Blog library**, refresh the repository history so the writer can avoid repeating topics and reference existing articles. Settings, enabled knowledge and article history are used together; they are not a substitute for factual review.

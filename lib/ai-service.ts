@@ -37,11 +37,17 @@ export async function generateArticleUnlocked(input: unknown) {
   });
   if(article.commit)return article;
   try {
-    const {article:reviewed,review}=await reviewArticleUnlocked(article.id);
-    if(!review.output?.ready)throw new Error(review.output?.remainingIssues.filter(i=>i.severity==='blocker').map(i=>i.message).join(' ')||'Editorial review needs attention.');
-    return await articlePhotoUnlocked(reviewed.id);
+    return await reviewThenPhotos(article.id);
   }catch(e){
     const all=await readArticles();const saved=all.find(a=>a.id===article.id)!;
     saved.error=`Draft saved. Preparation needs attention: ${(e as Error).message}`;saved.revision++;saved.updatedAt=new Date().toISOString();await writeArticles(all);return saved;
   }
+}
+// Photos do not depend on the review outcome: a draft that needs attention still gets them,
+// so the administrator reviews a complete article.
+export async function reviewThenPhotos(id:string,deps={review:reviewArticleUnlocked,photos:articlePhotoUnlocked}){
+  const {article:reviewed,review}=await deps.review(id);
+  const prepared=await deps.photos(reviewed.id);
+  if(!review.output?.ready)throw new Error(review.output?.remainingIssues.filter(i=>i.severity==='blocker').map(i=>i.message).join(' ')||'Editorial review needs attention.');
+  return prepared;
 }

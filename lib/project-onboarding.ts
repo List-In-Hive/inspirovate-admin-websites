@@ -12,6 +12,8 @@ import { withProject } from './config';
 import { saveKnowledge,saveLibrary,digest } from './content-store';
 import { inputSchema } from './article';
 import matter from 'gray-matter';
+import { visualFromSnapshot } from './visual-style';
+import type { VisualSettings } from './article-format';
 
 export function inspectRepository(s:RepositorySnapshot){
  const paths=new Set(s.files.filter(f=>f.mode==='100644').map(f=>f.path));
@@ -40,7 +42,7 @@ export async function inferProjectProfile(snapshot:RepositorySnapshot){
   if(response.status!=='completed'||!response.output_parsed)throw new Error('Incomplete profile');return profileSchema.parse(response.output_parsed);
 
 }
-export async function addProject(input:unknown,deps={snapshot:repositorySnapshot,infer:inferProjectProfile}){
+export async function addProject(input:unknown,deps:{snapshot:typeof repositorySnapshot;infer:typeof inferProjectProfile;visual?:(s:RepositorySnapshot)=>Promise<VisualSettings>}={snapshot:repositorySnapshot,infer:inferProjectProfile,visual:visualFromSnapshot}){
  const {repositoryUrl}=z.object({repositoryUrl:z.string().max(2000)}).parse(input);
  const repository=githubRepository(repositoryUrl);
  const duplicate=(await listProjects(true)).find(p=>p.repository.toLowerCase()===repository.toLowerCase());
@@ -54,6 +56,8 @@ export async function addProject(input:unknown,deps={snapshot:repositorySnapshot
  let profile=fallback;
  try {profile=profileSchema.parse(await deps.infer(snapshot));}
  catch{project.setup!.issues.push('AI setup was not completed. A basic profile was saved; review and complete it manually. No automatic paid retry was made.');}
+ // Match new photos to the website's own images; without it photos stay realistic and 3:2.
+ if(deps.visual){try{profile={...profile,...await deps.visual(snapshot)};}catch{project.setup!.issues.push('The image style could not be detected. Use “Detect from website images” in Blog rules & settings.');}}
  project.name=profile.name;project.brand=profile.name;project.description=profile.facts.slice(0,250);
  await query('UPDATE inspirovate.profile SET payload=$2 WHERE id=$1',[id,JSON.stringify(profile)]);
  await withProject(project,async()=>{

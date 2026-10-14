@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Profile } from './profile';
+import { visualSchema } from './article-format';
 
 // Draft preferences remain separate until the administrator applies all rules.
 export const blogSettingsSchema = z.object({
@@ -8,6 +9,7 @@ export const blogSettingsSchema = z.object({
   photoCount: z.number().int().min(1).max(6).default(2),
   externalLinkCount: z.number().int().min(0).max(10).default(3),
   internalLinkCount: z.number().int().min(0).max(10).default(3),
+  ...visualSchema.shape,
   audience: z.string().trim().min(1).max(1500),
   tone: z.string().trim().min(1).max(1000),
   goals: z.string().trim().min(1).max(3000),

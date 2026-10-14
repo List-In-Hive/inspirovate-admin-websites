@@ -7,6 +7,7 @@ import Knowledge from './Knowledge';
 import Library from './Library';
 import { useProject } from './ProjectContext';
 import { blogSettingsSchema, type BlogSettings as Settings } from '@/lib/blog-settings';
+import { imageAspects } from '@/lib/article-format';
 
 const counts = [
   {key:'photoCount', label:'Photos per article', min:1, max:6, hint:'Total unique photos, including the cover. The cover is also used inside the article.'},
@@ -64,6 +65,13 @@ function RulesEditor() {
       setMessage('All rules are active for new articles, including photo and link counts. Existing drafts keep their saved rules.');
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   };
+  const detectStyle=async()=>{
+    setBusy(true);setError('');setMessage('');
+    try{
+      const {data,samples}=await api('/blog-settings/visual-style','POST',{});
+      change(data);setMessage(`Style detected from ${samples.length} website image${samples.length===1?'':'s'}. Review it, then save or apply the rules.`);
+    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  };
   const save=async()=>{
     if(!settings)return;
     setError('');setMessage('');
@@ -78,7 +86,7 @@ function RulesEditor() {
       <Typography variant="h5">Rules & format</Typography><Chip label="Project rules" variant="outlined"/>
     </Stack>
     <Typography color="text.secondary" mb={3}>Set the article format and writing preferences for {project.brand}.</Typography>
-    <Alert severity="info" sx={{mb:3}}>Use “Apply all rules” to activate business information, writing rules, and photo/link counts for new articles. “Save draft settings” only saves edits for later. Existing articles keep their original rules. External sources are researched during generation; incomplete articles are held for review.</Alert>
+    <Alert severity="info" sx={{mb:3}}>Use “Apply all rules” to activate business information, writing rules, image style and photo/link counts for new articles. “Save draft settings” only saves edits for later. Existing articles keep their original rules. External sources are researched during generation; incomplete articles are held for review.</Alert>
     {active&&<Typography variant="body2" sx={{mb:2}}>Active for new articles: {active.photoCount} photos · {active.externalLinkCount} external links · {active.internalLinkCount} internal links{JSON.stringify(settings)!==JSON.stringify(active)?". The form contains unapplied changes.":"."}</Typography>}
     {error&&<Alert severity="error" sx={{mb:2}}>{error}</Alert>}
     {message&&<Alert severity="success" sx={{mb:2}}>{message}</Alert>}
@@ -100,6 +108,18 @@ function RulesEditor() {
           </TextField>)}
         </Stack>
         <Typography variant="body2" color="text.secondary" mt={2}>Defaults: 2 photos, 3 external links and 3 internal links. Counts are checked before publication. If relevant verified links are unavailable, the draft needs attention.</Typography>
+      </CardContent></Card>
+      <Card><CardContent sx={{p:{xs:2,md:3}}}>
+        <Typography variant="h6" mb={1}>Image style</Typography>
+        <Typography color="text.secondary" mb={3}>How every new cover and article photo should look, so images match this website’s design. Leave the style empty for realistic editorial photos.</Typography>
+        <Stack gap={3}>
+          <TextField label="Style for all images" value={settings.imageStyle} fullWidth multiline minRows={4} disabled={busy} onChange={e=>change({imageStyle:e.target.value})} placeholder="Flat vector illustration, navy #111B2B, cream #F3EEE6 and one red #C8392B accent, no gradients, soft long shadow" helperText="Medium, colours, background and level of detail. Subjects still change with each article." slotProps={{htmlInput:{maxLength:1500}}}/>
+          <TextField select label="Image proportions" value={settings.imageAspect} disabled={busy} onChange={e=>change({imageAspect:e.target.value as Settings['imageAspect']})} helperText="Match the shape the website uses for blog covers so they are not cut unexpectedly." sx={{maxWidth:360}}>
+            {imageAspects.map(a=><MenuItem key={a} value={a}>{a}</MenuItem>)}
+          </TextField>
+          <Box><Button variant="outlined" disabled={busy} onClick={detectStyle}>{busy?'Working…':'Detect from website images (paid)'}</Button></Box>
+          <Typography variant="body2" color="text.secondary">Detection looks at up to four blog images in the repository and fills both fields. It is one small paid AI request; nothing changes until you save or apply.</Typography>
+        </Stack>
       </CardContent></Card>
       <Card><CardContent sx={{p:{xs:2,md:3}}}>
         <Typography variant="h6" mb={1}>Writing rules</Typography>

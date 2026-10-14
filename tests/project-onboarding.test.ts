@@ -60,10 +60,11 @@ test('GitHub onboarding persists isolated setup, deduplicates paid analysis, pau
   process.env.DATABASE_URL='postgresql://test:test@localhost/test';globals.adminDatabaseReady=Promise.resolve();globals.adminPool={query:async(sql,values)=>{const r=await db.query(sql,values);return {...r,rowCount:r.affectedRows};}};
   const dbQuery=globals.adminPool.query;
   globals.adminPool.connect=async()=>({query:async(sql:string,values?:unknown[])=>sql.includes('pg_try_advisory_lock')?{rows:[{locked:true}]}:sql.includes('pg_advisory_unlock')?{rows:[{}]}:dbQuery(sql,values),release:()=>{}});
-  let paid=0;let reads=0;const deps={snapshot:async()=>{reads++;return snapshot();},infer:async()=>{paid++;return profileSchema.parse({name:'Furniture studio',facts:'Furniture advice',audience:'Homeowners',tone:'Practical'});}};
+  let paid=0;let reads=0;const deps={snapshot:async()=>{reads++;return snapshot();},infer:async()=>{paid++;return profileSchema.parse({name:'Furniture studio',facts:'Furniture advice',audience:'Homeowners',tone:'Practical'});},visual:async()=>({imageStyle:'Flat vector illustration in navy and cream',imageAspect:'16:9' as const})};
   const p=(await addProject({repositoryUrl:'https://github.com/owner/furniture'},deps))!;
   assert.equal(p.automationEnabled,false);assert.equal(p.setup?.reviewed,false);assert.equal(p.branch,'main');
-  assert.equal((await db.query<{payload:{name:string}}>('SELECT payload FROM inspirovate.profile WHERE id=$1',[p.id])).rows[0].payload.name,'Furniture studio');
+  const saved=(await db.query<{payload:{name:string;imageStyle:string;imageAspect:string}}>('SELECT payload FROM inspirovate.profile WHERE id=$1',[p.id])).rows[0].payload;
+  assert.deepEqual([saved.name,saved.imageStyle,saved.imageAspect],['Furniture studio','Flat vector illustration in navy and cream','16:9']);
   assert.equal((await db.query('SELECT * FROM inspirovate.library WHERE site_id=$1',[p.id])).rows.length,1);
   assert.ok((await db.query<{payload:{enabled:boolean}}>('SELECT payload FROM inspirovate.knowledge WHERE site_id=$1',[p.id])).rows.every(r=>!r.payload.enabled));
   await assert.rejects(()=>updateProject(p.id,{action:'automation',enabled:true}),/Review/);
